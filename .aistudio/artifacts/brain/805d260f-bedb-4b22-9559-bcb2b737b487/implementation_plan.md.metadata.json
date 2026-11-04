@@ -1,0 +1,6 @@
+{
+  "summary": "Comprehensive implementation plan for the AI Resume Tailorer & ATS Optimization Engine, detailing the two-phase Gemini analysis and tailoring workflow, interactive gap verification wizard, ATS scoring and diff visualization, strict factual bounds enforcement, schema-compliant JSON generator, and multi-format exports (PDF, DOCX, Plain Text, JSON).",
+  "updatedAt": "2026-11-04T07:14:25.722288934Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

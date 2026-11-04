@@ -1,0 +1,6 @@
+{
+  "name": "AI Resume Tailorer & ATS Optimization Engine",
+  "description": "Transform base resumes and job descriptions into ATS-optimized, strictly truthful resumes with interactive gap verification, semantic diffing, and schema-compliant JSON payloads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
