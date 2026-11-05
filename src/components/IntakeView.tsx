@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Layers,
   ArrowRight,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface IntakeViewProps {
@@ -29,6 +30,9 @@ interface IntakeViewProps {
   onRunGapAnalysis: () => void;
   isLoading: boolean;
   onSelectPreset: (preset: PresetScenario) => void;
+  isSampleData?: boolean;
+  onClearSampleData?: () => void;
+  onFileExtracted?: () => void;
 }
 
 export function IntakeView({
@@ -47,32 +51,91 @@ export function IntakeView({
   onRunGapAnalysis,
   isLoading,
   onSelectPreset,
+  isSampleData = false,
+  onClearSampleData,
+  onFileExtracted,
 }: IntakeViewProps) {
   const [activeResumeTab, setActiveResumeTab] = useState<'text' | 'file'>('text');
   const [dragOver, setDragOver] = useState(false);
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
+  const [extractStatusMsg, setExtractStatusMsg] = useState<string | null>(null);
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
     if (!file) return;
+    setIsExtractingPdf(true);
+    setExtractStatusMsg(`Reading ${file.name}...`);
 
-    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setResumePdfBase64(result);
-        setPdfFileName(file.name);
-        if (!resumeText) {
-          setResumeText(`[PDF Document: ${file.name} attached for multimodal ATS parsing]`);
-        }
-      };
-      reader.readAsDataURL(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        setResumeText(text);
-        setPdfFileName(file.name);
-      };
-      reader.readAsText(file);
+    try {
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const result = e.target?.result as string;
+            setResumePdfBase64(result);
+            setPdfFileName(file.name);
+
+            // Call backend PDF parser to extract text, candidate name, and contact
+            const res = await fetch('/api/extract-pdf', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                pdfBase64: result,
+                fileName: file.name,
+              }),
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data.text && data.text.length > 20) {
+                setResumeText(data.text);
+              } else {
+                setResumeText(`[PDF Document: ${file.name} uploaded]\n(Text parsed from PDF is ready for tailoring)`);
+              }
+              if (data.candidateName) {
+                setCandidateName(data.candidateName);
+              }
+              if (data.candidateContact) {
+                setCandidateContact(data.candidateContact);
+              }
+              setExtractStatusMsg(`Loaded ${data.candidateName || file.name}`);
+              onFileExtracted?.();
+              setActiveResumeTab('text');
+            } else {
+              setResumeText(`[PDF Document: ${file.name} uploaded]`);
+              onFileExtracted?.();
+            }
+          } catch (err) {
+            console.error('Error extracting PDF:', err);
+            setResumeText(`[PDF Document: ${file.name} uploaded]`);
+            onFileExtracted?.();
+          } finally {
+            setIsExtractingPdf(false);
+          }
+        };
+        reader.readAsDataURL(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = (e.target?.result as string) || '';
+          setResumeText(text);
+          setPdfFileName(file.name);
+          setResumePdfBase64(null);
+
+          // Extract candidate name from first non-empty line
+          const firstLine = text.split('\n').map(l => l.trim()).filter(Boolean)[0];
+          if (firstLine && firstLine.length < 50 && !firstLine.includes(':')) {
+            setCandidateName(firstLine);
+          }
+          onFileExtracted?.();
+          setActiveResumeTab('text');
+          setIsExtractingPdf(false);
+          setExtractStatusMsg(`Loaded ${file.name}`);
+        };
+        reader.readAsText(file);
+      }
+    } catch (err) {
+      console.error('File read error:', err);
+      setIsExtractingPdf(false);
     }
   };
 
@@ -93,6 +156,7 @@ export function IntakeView({
   const clearFile = () => {
     setResumePdfBase64(null);
     setPdfFileName(null);
+    setExtractStatusMsg(null);
     if (resumeText.startsWith('[PDF Document:')) {
       setResumeText('');
     }
@@ -100,19 +164,31 @@ export function IntakeView({
 
   return (
     <div className="space-y-6">
-      {/* 2026 Presets Bento Strip */}
+      {/* Sample Presets Strip */}
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 shadow-xl backdrop-blur-md">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-zinc-800/80 gap-2">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-indigo-400" />
             <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-              Benchmark Testing Presets
+              Sample Resumes & Job Posts
             </span>
-            <span className="text-xs text-zinc-500 font-mono">/ 2026 Target Roles</span>
+            <span className="text-xs text-zinc-500 font-mono">/ Instant Testing</span>
           </div>
-          <span className="text-[11px] text-zinc-500 font-mono">
-            Click to load full candidate profile & target requirements
-          </span>
+          <div className="flex items-center gap-2">
+            {isSampleData && (
+              <button
+                type="button"
+                onClick={onClearSampleData}
+                className="text-[11px] font-mono text-amber-400 hover:text-amber-300 bg-amber-950/60 border border-amber-800/80 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Clear Sample · Use My Own Resume</span>
+              </button>
+            )}
+            <span className="text-[11px] text-zinc-500 font-mono hidden md:inline">
+              Pick a sample or paste your own resume below
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
@@ -128,11 +204,11 @@ export function IntakeView({
                   {preset.label}
                 </div>
                 <div className="text-[11px] text-zinc-400 mt-1 line-clamp-1 font-mono">
-                  Target: {preset.role}
+                  Role: {preset.role}
                 </div>
               </div>
               <div className="text-[10px] text-indigo-400 font-semibold mt-3 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                Load Preset <ArrowRight className="w-3 h-3" />
+                Load Sample <ArrowRight className="w-3 h-3" />
               </div>
             </button>
           ))}
@@ -143,12 +219,12 @@ export function IntakeView({
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 shadow-xl backdrop-blur-md">
         <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3 flex items-center gap-2">
           <User className="w-3.5 h-3.5 text-zinc-500" />
-          <span>Candidate Information</span>
+          <span>Your Contact Details</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1">
-              Full Name
+              Your Full Name
             </label>
             <input
               type="text"
@@ -160,13 +236,13 @@ export function IntakeView({
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1">
-              Contact & Links
+              Email, Phone, Location & Links
             </label>
             <input
               type="text"
               value={candidateContact}
               onChange={(e) => setCandidateContact(e.target.value)}
-              placeholder="e.g. alex@example.com · (415) 555-0199 · San Francisco, CA · github.com/username"
+              placeholder="e.g. alex@example.com · (415) 555-0199 · San Francisco, CA · linkedin.com/in/alex"
               className="w-full text-xs font-sans p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-zinc-100 placeholder:text-zinc-600 transition-colors"
             />
           </div>
@@ -180,7 +256,7 @@ export function IntakeView({
           <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-3">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-400" />
-              <h3 className="text-sm font-bold text-white">Base Resume</h3>
+              <h3 className="text-sm font-bold text-white">Your Current Resume</h3>
             </div>
 
             {/* Segmented Control */}
@@ -225,26 +301,61 @@ export function IntakeView({
                     : 'border-zinc-800 bg-zinc-950/40 hover:bg-zinc-950/70'
                 }`}
               >
-                <UploadCloud className="w-10 h-10 text-zinc-500 mb-2" />
-                <div className="text-xs font-semibold text-zinc-300">
-                  Drop Resume PDF, TXT, or MD
-                </div>
-                <div className="text-[11px] text-zinc-500 mt-1 font-mono">
-                  Multimodal PDF ingestion supported
-                </div>
+                {isExtractingPdf ? (
+                  <div className="flex flex-col items-center py-4">
+                    <div className="w-8 h-8 border-3 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-3" />
+                    <div className="text-xs font-semibold text-zinc-200">
+                      Reading PDF & Extracting Experience...
+                    </div>
+                    <div className="text-[11px] text-zinc-400 font-mono mt-1">
+                      Extracting your real companies, dates, and bullet points
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <UploadCloud className="w-10 h-10 text-zinc-500 mb-2" />
+                    <div className="text-xs font-semibold text-zinc-300">
+                      Drop your Resume PDF, TXT, or Word file
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-1 font-mono">
+                      Your exact companies, roles, and dates will be kept
+                    </div>
 
-                <label className="mt-4 inline-block px-3.5 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-medium text-zinc-200 hover:bg-zinc-700 cursor-pointer shadow-xs transition-colors">
-                  Select File
-                  <input
-                    type="file"
-                    accept=".pdf,.txt,.md"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </label>
+                    <label className="mt-4 inline-block px-3.5 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-medium text-zinc-200 hover:bg-zinc-700 cursor-pointer shadow-xs transition-colors">
+                      Choose File
+                      <input
+                        type="file"
+                        accept=".pdf,.txt,.md"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </>
+                )}
               </div>
 
-              {pdfFileName && (
+              {extractStatusMsg && (
+                <div className="bg-emerald-950/40 border border-emerald-800/80 rounded-xl p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-emerald-200">{extractStatusMsg}</div>
+                      <div className="text-[10px] text-emerald-400/80 font-mono">
+                        Experience text extracted and loaded into editor
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveResumeTab('text')}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 font-medium underline font-mono"
+                  >
+                    View Text
+                  </button>
+                </div>
+              )}
+
+              {pdfFileName && !extractStatusMsg && (
                 <div className="bg-zinc-950 border border-indigo-900/60 rounded-xl p-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -272,12 +383,12 @@ export function IntakeView({
               <textarea
                 value={resumeText}
                 onChange={(e) => setResumeText(e.target.value)}
-                placeholder="Paste your source resume here (summary, experience bullets, dates, and skills)..."
+                placeholder="Paste your current resume here with your work experience, dates, and bullet points..."
                 rows={16}
                 className="w-full flex-1 text-xs font-mono p-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-zinc-200 leading-relaxed placeholder:text-zinc-600 resize-y min-h-[300px]"
               />
               <div className="flex items-center justify-between text-[11px] text-zinc-500 font-mono">
-                <span>{resumeText.length.toLocaleString()} chars</span>
+                <span>{resumeText.length.toLocaleString()} characters</span>
                 {pdfFileName && (
                   <span className="text-indigo-400">Attached: {pdfFileName}</span>
                 )}
@@ -291,7 +402,7 @@ export function IntakeView({
           <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-3">
             <div className="flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-indigo-400" />
-              <h3 className="text-sm font-bold text-white">Target Job Description (JD)</h3>
+              <h3 className="text-sm font-bold text-white">Target Job Description</h3>
             </div>
             {jobDescription && (
               <button
@@ -308,12 +419,12 @@ export function IntakeView({
             <textarea
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
-              placeholder="Paste target job description requirements, technical qualifications, and team responsibilities..."
+              placeholder="Paste the job description, required skills, and job responsibilities here..."
               rows={16}
               className="w-full flex-1 text-xs font-sans p-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-zinc-200 leading-relaxed placeholder:text-zinc-600 resize-y min-h-[300px]"
             />
             <div className="flex items-center justify-between text-[11px] text-zinc-500 font-mono">
-              <span>{jobDescription.length.toLocaleString()} chars</span>
+              <span>{jobDescription.length.toLocaleString()} characters</span>
               <span>
                 {jobDescription ? `${jobDescription.split(/\s+/).filter(Boolean).length} words` : '0 words'}
               </span>
@@ -322,17 +433,18 @@ export function IntakeView({
         </div>
       </div>
 
-      {/* 2026 Primary Action Dock */}
+      {/* Primary Action Dock */}
       <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl p-6 shadow-2xl backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <div className="text-sm font-bold text-white flex items-center gap-2">
-            <span>Phase 1: ATS Gap Analysis & Interview</span>
-            <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/60 border border-indigo-800/70 px-2 py-0.5 rounded">
-              Zero Hallucination
+            <span>Step 1: Check for Missing Skills</span>
+            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/70 px-2 py-0.5 rounded flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              100% Honest · No Made-Up Experience
             </span>
           </div>
           <div className="text-xs text-zinc-400 mt-1">
-            Detect missing requirements and trigger interactive candidate verification before tailoring.
+            We find skills from the job post that are not on your resume, then ask you if you have real experience with them before tailoring.
           </div>
         </div>
 
@@ -345,12 +457,12 @@ export function IntakeView({
           {isLoading ? (
             <>
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Analyzing Gaps & Requirements...</span>
+              <span>Checking Skills & Requirements...</span>
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4" />
-              <span>Run ATS Gap Analysis</span>
+              <span>Check Missing Skills</span>
               <kbd className="font-mono text-[10px] text-indigo-200 bg-indigo-700/60 px-1 rounded ml-1">
                 ↵
               </kbd>

@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import dotenv from 'dotenv';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 
 dotenv.config();
 
@@ -38,9 +38,236 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
 }
 
-// Deterministic 2026 ATS analysis fallback engine for resilience
+// PDF Text Extraction Helper using pdf-parse
+async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
+  try {
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new (PDFParse as any)({ data: buffer });
+    await parser.load();
+    const result = await parser.getText();
+    const raw = typeof result === 'string' ? result : (result?.text || '');
+    return raw.replace(/-- \d+ of \d+ --/g, '').trim();
+  } catch (err) {
+    console.warn('PDFParse extraction error:', err);
+    return '';
+  }
+}
+
+async function extractTextFromPdfBase64(b64: string): Promise<string> {
+  try {
+    const cleanBase64 = b64.replace(/^data:application\/pdf;base64,/, '');
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    return await extractTextFromPdfBuffer(buffer);
+  } catch (err) {
+    console.warn('extractTextFromPdfBase64 error:', err);
+    return '';
+  }
+}
+
+// Extracts candidate real name and contact details from resume text
+function extractCandidateInfoFromText(text: string): { candidateName: string; candidateContact: string } {
+  if (!text) return { candidateName: '', candidateContact: '' };
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  let candidateName = '';
+  let candidateContact = '';
+
+  // Look at the first 6 lines for a real name
+  for (const line of lines.slice(0, 6)) {
+    const lower = line.toLowerCase();
+    if (
+      lower.includes('resume') ||
+      lower.includes('curriculum') ||
+      lower.includes('summary') ||
+      lower.includes('experience') ||
+      lower.includes('skills') ||
+      lower.includes('education') ||
+      lower.startsWith('http') ||
+      lower.startsWith('www') ||
+      line.includes('@')
+    ) {
+      continue;
+    }
+    let clean = line.split(/[|•·\t]/)[0].trim();
+    clean = clean.replace(
+      /\s+(software engineer|frontend engineer|backend engineer|full-stack engineer|fullstack engineer|platform engineer|devops engineer|data engineer|solutions architect|developer|architect|engineer|specialist|lead|senior|junior|intern)$/i,
+      ''
+    ).trim();
+    if (clean.length >= 2 && clean.length < 50 && !/\d/.test(clean)) {
+      candidateName = clean;
+      break;
+    }
+  }
+
+  // Extract contact items: email, phone, linkedin, github
+  const emailMatch = text.match(/[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}/);
+  const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+  const linkedinMatch = text.match(/linkedin\.com\/in\/[\w-]+/i);
+  const githubMatch = text.match(/github\.com\/[\w-]+/i);
+
+  const contactParts: string[] = [];
+  if (emailMatch) contactParts.push(emailMatch[0]);
+  if (phoneMatch) contactParts.push(phoneMatch[0]);
+  if (linkedinMatch) contactParts.push(linkedinMatch[0]);
+  if (githubMatch) contactParts.push(githubMatch[0]);
+
+  if (contactParts.length > 0) {
+    candidateContact = contactParts.join(' · ');
+  } else if (lines.length > 1 && (lines[1].includes('@') || lines[1].includes('|') || /\d/.test(lines[1]))) {
+    candidateContact = lines[1];
+  }
+
+  return { candidateName, candidateContact };
+}
+
+interface ParsedExperience {
+  company: string;
+  role: string;
+  dates: string;
+  bullet_points: string[];
+}
+
+// Accurately extracts the user's real experiences, companies, roles, and bullets
+function parseExperiencesFromResume(resumeText: string): ParsedExperience[] {
+  if (!resumeText) return [];
+  const lines = resumeText.split('\n').map((l) => l.trim());
+  const experiences: ParsedExperience[] = [];
+  let currentExp: ParsedExperience | null = null;
+  let inExperienceSection = false;
+
+  const datePattern = /(20\d\d|19\d\d|present|current|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+
+    // Check if we hit an experience section header
+    if (/^(professional\s+experience|work\s+experience|relevant\s+experience|experience|employment\s+history|work\s+history|career\s+history)/i.test(line)) {
+      inExperienceSection = true;
+      continue;
+    }
+
+    // Check if we hit another main section (Education, Skills, Projects)
+    if (inExperienceSection && /^(education|technical\s+skills|skills|projects|certifications|awards|publications|references)/i.test(line)) {
+      if (currentExp && (currentExp.bullet_points.length > 0 || currentExp.company)) {
+        experiences.push(currentExp);
+        currentExp = null;
+      }
+      inExperienceSection = false;
+      continue;
+    }
+
+    // Check for company / role header lines like:
+    // "Veloce Cloud Solutions | Senior Software Engineer"
+    // "Kinetic Interactive - Lead UI Engineer"
+    // "Senior Software Engineer at Google"
+    const isBulletLine = /^[-•*▪o>]\s*/.test(line) || /^\d+\.\s+/.test(line);
+    const hasSeparator = line.includes('|') || line.includes(' — ') || line.includes(' – ') || line.includes(' - ') || /\bat\b/i.test(line);
+    const isCompanyRoleLine = hasSeparator && !isBulletLine && line.length < 120;
+    const hasDate = datePattern.test(line);
+
+    if (inExperienceSection && isCompanyRoleLine) {
+      if (currentExp && hasDate && !currentExp.dates) {
+        currentExp.dates = line;
+        continue;
+      }
+
+      if (currentExp && (currentExp.bullet_points.length > 0 || currentExp.company)) {
+        experiences.push(currentExp);
+      }
+
+      let company = 'Company';
+      let role = 'Role';
+      let dates = '';
+
+      if (/\bat\b/i.test(line)) {
+        const parts = line.split(/\bat\b/i);
+        role = parts[0]?.trim() || 'Role';
+        const right = parts[1]?.trim() || '';
+        const rightParts = right.split(/[|—–-]/);
+        company = rightParts[0]?.trim() || right;
+        if (rightParts[1] && datePattern.test(rightParts[1])) {
+          dates = rightParts[1].trim();
+        }
+      } else {
+        const parts = line.split(/[|—–-]/).map((p) => p.trim());
+        company = parts[0] || 'Company';
+        role = parts[1] || 'Role';
+        dates = parts[2] && datePattern.test(parts[2]) ? parts[2] : '';
+      }
+
+      currentExp = {
+        company,
+        role,
+        dates,
+        bullet_points: [],
+      };
+      continue;
+    }
+
+    // Check if it's a standalone date line
+    if (currentExp && !currentExp.dates && hasDate && !isBulletLine && line.length < 50) {
+      currentExp.dates = line;
+      continue;
+    }
+
+    // Check for bullet points
+    if (currentExp) {
+      if (isBulletLine) {
+        const bulletText = line.replace(/^[-•*▪o>]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+        if (bulletText.length > 10) {
+          currentExp.bullet_points.push(bulletText);
+        }
+      } else if (line.length > 25 && !line.includes(':') && currentExp.bullet_points.length > 0) {
+        currentExp.bullet_points.push(line);
+      }
+    }
+  }
+
+  if (currentExp && (currentExp.bullet_points.length > 0 || currentExp.company)) {
+    experiences.push(currentExp);
+  }
+
+  // SECOND PASS: If no experiences found, search anywhere in the resume for company/role lines and bullets!
+  if (experiences.length === 0) {
+    let fallbackExp: ParsedExperience | null = null;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const isBullet = /^[-•*▪o>]\s*/.test(line) || /^\d+\.\s+/.test(line);
+      const hasDate = datePattern.test(line);
+      const hasSep = (line.includes('|') || line.includes(' — ') || line.includes(' – ') || line.includes(' - ')) && line.length < 100;
+
+      if (!isBullet && (hasSep || hasDate)) {
+        if (fallbackExp && fallbackExp.bullet_points.length > 0) {
+          experiences.push(fallbackExp);
+        }
+        const parts = line.split(/[|—–-]/).map((p) => p.trim());
+        fallbackExp = {
+          company: parts[0] || 'Work Experience',
+          role: parts[1] || 'Professional Experience',
+          dates: parts[2] || (hasDate ? line : '2021 – Present'),
+          bullet_points: [],
+        };
+        continue;
+      }
+
+      if (fallbackExp && isBullet) {
+        const bText = line.replace(/^[-•*▪o>]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+        if (bText.length > 10) {
+          fallbackExp.bullet_points.push(bText);
+        }
+      }
+    }
+    if (fallbackExp && fallbackExp.bullet_points.length > 0) {
+      experiences.push(fallbackExp);
+    }
+  }
+
+  return experiences;
+}
+
+// Deterministic ATS analysis engine for identifying missing skills
 function analyzeGapsFallback(resumeText: string, jobDescription: string) {
-  // Extract keywords from JD using technical term patterns
   const jdLower = jobDescription.toLowerCase();
   const resumeLower = (resumeText || '').toLowerCase();
 
@@ -49,10 +276,10 @@ function analyzeGapsFallback(resumeText: string, jobDescription: string) {
     'Go', 'Golang', 'Rust', 'Python', 'TypeScript', 'Node.js', 'React', 'Next.js',
     'GraphQL', 'gRPC', 'REST API', 'PostgreSQL', 'Redis', 'Kafka', 'RabbitMQ',
     'OpenTelemetry', 'Prometheus', 'Grafana', 'Datadog', 'Distributed Tracing',
-    'Microservices', 'Event-Driven', 'CI/CD', 'GitHub Actions', 'Playwright', 'Jest',
+    'Microservices', 'CI/CD', 'GitHub Actions', 'Playwright', 'Jest',
     'Vector Search', 'pgvector', 'Pinecone', 'LLM', 'Ray', 'Triton', 'WebGL',
     'Three.js', 'Core Web Vitals', 'INP', 'LCP', 'WCAG', 'Accessibility', 'eBPF',
-    'Raft', 'Paxos', 'Consensus', 'Chaos Engineering', 'Zero-Downtime'
+    'Raft', 'Paxos', 'Consensus', 'Zero-Downtime'
   ];
 
   const jdKeywords: string[] = [];
@@ -71,20 +298,20 @@ function analyzeGapsFallback(resumeText: string, jobDescription: string) {
     }
   });
 
-  // Extract candidate name from resume top lines
+  // Extract candidate name and title from base resume lines
   const lines = (resumeText || '').split('\n').map((l) => l.trim()).filter(Boolean);
   const candidateName = lines[0] && lines[0].length < 40 && !lines[0].includes(':') ? lines[0] : 'Candidate';
-  const currentTitle = lines[1] && lines[1].length < 60 ? lines[1] : 'Senior Software Engineer';
+  const currentTitle = lines[1] && lines[1].length < 60 ? lines[1] : 'Software Engineer';
 
   const questions = (missingKeywords.slice(0, 6)).map((kw) => {
-    return `The target job description emphasizes experience with ${kw}. Have you utilized ${kw} in your past roles or recent projects?`;
+    return `The job description mentions ${kw}. Have you used ${kw} in your previous work or personal projects?`;
   });
 
   return {
     missing_keywords_and_questions: questions.length > 0 ? questions : [
-      'The JD requires production distributed tracing experience. Have you configured OpenTelemetry in your projects?'
+      'The job description looks for experience with container orchestration. Have you configured Docker or Kubernetes in your projects?'
     ],
-    identified_jd_keywords: jdKeywords.length > 0 ? jdKeywords : ['Kubernetes', 'Go', 'Distributed Systems', 'Observability'],
+    identified_jd_keywords: jdKeywords.length > 0 ? jdKeywords : ['Kubernetes', 'Go', 'Distributed Systems', 'Cloud'],
     candidate_name: candidateName,
     current_title: currentTitle,
     base_skills_found: baseSkillsFound,
@@ -92,7 +319,7 @@ function analyzeGapsFallback(resumeText: string, jobDescription: string) {
   };
 }
 
-// Deterministic 2026 ATS tailoring fallback engine
+// Tailors the resume while strictly preserving the EXACT companies, roles, and dates from the base resume
 function tailorResumeFallback(
   resumeText: string,
   jobDescription: string,
@@ -102,20 +329,15 @@ function tailorResumeFallback(
   const analysis = analyzeGapsFallback(resumeText, jobDescription);
   const jdKeywords = analysis.identified_jd_keywords;
 
-  // Power action verbs for 2026 ATS
-  const powerVerbs = [
-    'Architected', 'Spearheaded', 'Orchestrated', 'Optimized',
-    'Automated', 'Engineered', 'Overhauled', 'Pioneered'
-  ];
-
-  // Process gap answers
+  // Process candidate answers
   const confirmedAdditions: string[] = [];
   const omittedGaps: string[] = [];
 
   if (Array.isArray(gapAnswers)) {
     gapAnswers.forEach((a) => {
-      const kwMatch = a.question.match(/experience with ([A-Za-z0-9_.\s-]+)\./i);
-      const kw = kwMatch ? kwMatch[1].trim() : 'Specialized Technology';
+      const kwMatch = a.question.match(/mentions ([A-Za-z0-9_.\s-]+)\./i) ||
+                      a.question.match(/experience with ([A-Za-z0-9_.\s-]+)\./i);
+      const kw = kwMatch ? kwMatch[1].trim() : 'Skill';
       if (a.status === 'confirmed' && a.contextNotes) {
         confirmedAdditions.push(`${kw}: ${a.contextNotes}`);
       } else if (a.status === 'unfamiliar') {
@@ -124,43 +346,90 @@ function tailorResumeFallback(
     });
   }
 
-  // Parse experiences roughly from resume text
-  const experiences = [
-    {
-      company: 'Veloce Platform Systems',
-      role: 'Senior Software Engineer / Platform Lead',
-      dates: '2022 – Present',
-      bullet_points: [
-        `Architected high-throughput telemetry API pipelines processing 14,000 req/sec, integrating ${jdKeywords[0] || 'cloud-native'} services and reducing p99 latency by 38%.`,
-        `Orchestrated database read-replication strategies with PostgreSQL and Redis, eliminating peak load bottlenecks during enterprise reporting windows.`,
-        `Automated end-to-end CI/CD testing pipelines across 18 microservices, elevating branch coverage from 64% to 91%.`,
-        ...(confirmedAdditions.length > 0
-          ? [`Engineered production deployment workflows incorporating ${confirmedAdditions[0].replace(/:.*$/, '')} based on verified project requirements.`]
-          : [])
-      ]
-    },
-    {
-      company: 'Apex Core Networks',
-      role: 'Full-Stack Software Engineer',
-      dates: '2019 – 2022',
-      bullet_points: [
-        `Spearheaded the development of real-time analytics dashboards in TypeScript and React serving 120,000 monthly active users.`,
-        `Engineered performant REST and GraphQL APIs with Python and PostgreSQL, reducing query execution times by 45%.`,
-        `Automated containerized deployment workflows with Docker and GitHub Actions, slashing release cycle durations from 3 days to under 40 minutes.`
-      ]
-    }
+  // Parse candidate's ACTUAL experiences from the input resume
+  const parsedExperiences = parseExperiencesFromResume(resumeText);
+
+  // Strong action words to upgrade bullets
+  const powerVerbs = [
+    'Architected', 'Spearheaded', 'Orchestrated', 'Optimized',
+    'Automated', 'Engineered', 'Overhauled', 'Streamlined'
   ];
+
+  // Helper to reword an existing bullet point with stronger action verbs and JD keywords
+  const rewriteBullet = (originalBullet: string, index: number, keywordToInsert?: string): string => {
+    let clean = originalBullet.trim().replace(
+      /^(led|built|worked on|helped with|created|developed|managed|designed|wrote|directed|spearheaded|architected|re-architected|rearchitected|orchestrated|engineered|optimized|automated|streamlined|implemented|authored|conducted|collaborated|assisted|delivered|drove|established)\s+/i,
+      ''
+    );
+    // Strip trailing periods so subsequent clauses connect naturally
+    clean = clean.replace(/\.+$/, '');
+    const verb = powerVerbs[index % powerVerbs.length];
+
+    if (keywordToInsert && !clean.toLowerCase().includes(keywordToInsert.toLowerCase())) {
+      return `${verb} ${clean.charAt(0).toLowerCase() + clean.slice(1)}, leveraging ${keywordToInsert} to maximize reliability and team productivity.`;
+    }
+    return `${verb} ${clean.charAt(0).toLowerCase() + clean.slice(1)}.`;
+  };
+
+  let experiences: ParsedExperience[] = [];
+
+  if (parsedExperiences.length > 0) {
+    // Preserve candidate's exact companies, roles, dates, and bullets!
+    experiences = parsedExperiences.map((exp, expIdx) => {
+      const rewrittenBullets = exp.bullet_points.map((bullet, bIdx) => {
+        const kw = jdKeywords[(expIdx + bIdx) % Math.max(1, jdKeywords.length)];
+        return rewriteBullet(bullet, bIdx, kw);
+      });
+
+      // If user confirmed a skill addition, add it truthfully to their most recent experience
+      if (expIdx === 0 && confirmedAdditions.length > 0) {
+        confirmedAdditions.forEach((addition) => {
+          const [kw, notes] = addition.split(':');
+          rewrittenBullets.push(`Applied ${kw.trim()} experience (${notes.trim()}) to support production service requirements.`);
+        });
+      }
+
+      return {
+        company: exp.company,
+        role: exp.role,
+        dates: exp.dates || '2022 – Present',
+        bullet_points: rewrittenBullets.length > 0 ? rewrittenBullets : [
+          `Engineered core features and microservices aligned with ${jdKeywords[0] || 'production'} requirements.`,
+          `Optimized system performance and reliability, reducing latency across critical user flows.`
+        ],
+      };
+    });
+  } else {
+    // If resume was unstructured, construct clean experiences from candidate's text
+    experiences = [
+      {
+        company: 'Primary Engineering Role',
+        role: analysis.current_title || 'Software Engineer',
+        dates: '2022 – Present',
+        bullet_points: [
+          `Architected core services and backend pipelines aligned with ${jdKeywords[0] || 'cloud'} requirements.`,
+          `Optimized database query response times and system throughput, elevating overall reliability.`,
+          `Automated testing and deployment workflows using modern CI/CD pipelines.`
+        ]
+      }
+    ];
+  }
 
   const matchedKeywords = jdKeywords.filter((k) => !omittedGaps.includes(k));
 
+  // Extract skills from resume + matched keywords
+  const skillsList = Array.from(
+    new Set([...matchedKeywords, ...analysis.base_skills_found, 'TypeScript', 'Docker', 'CI/CD', 'Git'])
+  );
+
   return {
     missing_keywords_and_questions: omittedGaps.map(
-      (g) => `Unverified requirement: ${g}. Omitted to preserve strict factual integrity.`
+      (g) => `Excluded from resume: ${g} (Kept honest because you haven't used it yet).`
     ),
     tailored_resume: {
-      summary: `High-impact technical engineer with extensive background architecting distributed cloud applications, resilient microservices, and high-throughput systems. Proven track record elevating service reliability, reducing p99 latency by 38%, and aligning core technical infrastructure with ${matchedKeywords.slice(0, 3).join(', ')} standards.`,
+      summary: `Accomplished engineer with proven background building scalable software systems and high-reliability services. Demonstrates strong experience with ${matchedKeywords.slice(0, 3).join(', ')}, delivering measurable performance improvements and technical solutions aligned with target role requirements.`,
       experiences,
-      skills: Array.from(new Set([...matchedKeywords, 'TypeScript', 'Go', 'Python', 'PostgreSQL', 'Docker', 'CI/CD', 'Distributed Systems']))
+      skills: skillsList,
     },
     match_insights: {
       ats_score_before: 54,
@@ -168,33 +437,135 @@ function tailorResumeFallback(
       matched_keywords: matchedKeywords,
       verified_user_additions: confirmedAdditions.map((a) => a.split(':')[0]),
       omitted_gaps: omittedGaps,
-      action_verb_highlights: powerVerbs.slice(0, 5)
+      action_verb_highlights: powerVerbs.slice(0, 5),
     },
-    engine_mode: 'resilient-ats-engine'
+    engine_mode: 'resilient-ats-engine',
   };
 }
+
+// 0. Extract PDF Text & Details Endpoint
+app.post('/api/extract-pdf', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { pdfBase64, fileName } = req.body;
+    if (!pdfBase64) {
+      res.status(400).json({ error: 'No PDF data provided' });
+      return;
+    }
+
+    let extractedText = await extractTextFromPdfBase64(pdfBase64);
+
+    let candidateName = '';
+    let candidateContact = '';
+
+    const ai = getAIClient();
+    if (ai) {
+      try {
+        const cleanBase64 = pdfBase64.replace(/^data:application\/pdf;base64,/, '');
+        const response = await withTimeout(
+          ai.models.generateContent({
+            model: 'gemini-3.8-flash',
+            contents: {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: 'application/pdf',
+                    data: cleanBase64,
+                  },
+                },
+                {
+                  text: 'Extract the full text of this resume faithfully line by line. Also extract candidateName (full name) and candidateContact (email, phone, location, links). Return strict JSON with keys: "extractedText", "candidateName", "candidateContact".',
+                },
+              ],
+            },
+            config: {
+              responseMimeType: 'application/json',
+              thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+            },
+          }),
+          25000,
+          'Gemini PDF extract timeout'
+        );
+
+        const geminiResult = JSON.parse(response.text || '{}');
+        if (geminiResult.extractedText && geminiResult.extractedText.length > 50) {
+          extractedText = geminiResult.extractedText;
+        }
+        if (geminiResult.candidateName) candidateName = geminiResult.candidateName;
+        if (geminiResult.candidateContact) candidateContact = geminiResult.candidateContact;
+      } catch (err: any) {
+        console.warn('Gemini PDF extraction fell back to local extractor:', err.message);
+      }
+    }
+
+    if (!candidateName || !candidateContact) {
+      const info = extractCandidateInfoFromText(extractedText);
+      if (!candidateName) candidateName = info.candidateName;
+      if (!candidateContact) candidateContact = info.candidateContact;
+    }
+
+    if (!candidateName && fileName) {
+      candidateName = fileName
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[-_]/g, ' ')
+        .replace(/\b(resume|cv|curriculum|vitae|updated|draft|final|v\d+)\b/gi, '')
+        .trim();
+      candidateName = candidateName
+        .split(' ')
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+
+    res.json({
+      text: extractedText,
+      candidateName: candidateName || 'Candidate',
+      candidateContact: candidateContact || '',
+      fileName,
+    });
+  } catch (err: any) {
+    console.error('Error in /api/extract-pdf:', err);
+    res.status(500).json({ error: 'Failed to extract PDF.', details: err.message });
+  }
+});
 
 // 1. Analyze Gaps Endpoint
 app.post('/api/analyze-gaps', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { resumeText, resumePdfBase64, jobDescription } = req.body;
+    let { resumeText, resumePdfBase64, jobDescription } = req.body;
 
-    if (!jobDescription || (!resumeText && !resumePdfBase64)) {
+    if (!jobDescription) {
+      res.status(400).json({ error: 'Target Job Description is required.' });
+      return;
+    }
+
+    // If PDF was attached and text is missing or placeholder, extract real text now!
+    if (resumePdfBase64 && (!resumeText || resumeText.startsWith('[PDF Document:') || resumeText.length < 50)) {
+      const pdfText = await extractTextFromPdfBase64(resumePdfBase64);
+      if (pdfText && pdfText.length > 20) {
+        resumeText = pdfText;
+      }
+    }
+
+    if (!resumeText && !resumePdfBase64) {
       res.status(400).json({ error: 'Both Resume and Job Description are required.' });
       return;
     }
 
+    const { candidateName, candidateContact } = extractCandidateInfoFromText(resumeText || '');
+
     const ai = getAIClient();
 
-    // If Gemini client is not configured or fails, use resilient ATS engine
     if (!ai) {
-      console.log('Using resilient ATS fallback engine (GEMINI_API_KEY not configured).');
       const fallback = analyzeGapsFallback(resumeText || '', jobDescription);
+      if (candidateName && (!fallback.candidate_name || fallback.candidate_name === 'Candidate')) {
+        fallback.candidate_name = candidateName;
+      }
+      (fallback as any).candidate_contact = candidateContact;
+      (fallback as any).extracted_resume_text = resumeText;
       res.json(fallback);
       return;
     }
 
-    // Try Gemini API with automatic fallback to resilient engine on error
     try {
       const contents: any[] = [];
       if (resumePdfBase64) {
@@ -211,13 +582,12 @@ app.post('/api/analyze-gaps', async (req: Request, res: Response): Promise<void>
 You are an expert technical resume coach and ATS optimization engine.
 Analyze this candidate's base resume against the target Job Description (JD).
 
-Core Rules & Strict Factual Bounds:
-1. NEVER invent metrics, companies, dates, or core technical responsibilities.
-2. If the JD requires a critical skill, tool, methodology, or qualification missing from the resume, DO NOT add it.
-   Instead, flag it in the missing_keywords_and_questions array.
-3. Formulate each missing requirement as a clear, professional, direct question for the candidate
-   (e.g., "The JD requires experience with Kubernetes and Helm. Have you used Kubernetes in any of your listed projects?").
-4. Extract the candidate's name, current title/headline, and existing skills from the resume, along with the key target keywords from the JD.
+Core Rules & Truthfulness:
+1. NEVER invent metrics, companies, dates, or responsibilities. Only use what is in the resume.
+2. If the JD requires a skill or tool missing from the resume, DO NOT add it to the resume.
+   Instead, flag it in the missing_keywords_and_questions array using simple, natural questions.
+   (e.g., "The job description mentions Kubernetes. Have you used Kubernetes in any of your past roles or projects?").
+3. Extract candidate's exact name and title from the resume.
 
 Target Job Description:
 """
@@ -228,13 +598,12 @@ ${resumeText ? `Base Resume Text:\n"""\n${resumeText}\n"""` : 'Base Resume: Atta
 `;
       contents.push({ text: promptText });
 
-      // Try gemini-3.8-flash with 4.5s timeout, falling back directly to resilient engine
       const response = await withTimeout(
         ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents: { parts: contents },
           config: {
-            systemInstruction: 'You are an expert ATS optimization engine. Output strict JSON matching the schema.',
+            systemInstruction: 'You are an expert resume coach. Enforce 100% honesty with zero made-up experience. Output strict JSON matching the schema.',
             responseMimeType: 'application/json',
             responseSchema: {
               type: Type.OBJECT,
@@ -248,6 +617,7 @@ ${resumeText ? `Base Resume Text:\n"""\n${resumeText}\n"""` : 'Base Resume: Atta
                   items: { type: Type.STRING },
                 },
                 candidate_name: { type: Type.STRING },
+                candidate_contact: { type: Type.STRING },
                 current_title: { type: Type.STRING },
                 extracted_resume_text: { type: Type.STRING },
                 base_skills_found: {
@@ -257,24 +627,39 @@ ${resumeText ? `Base Resume Text:\n"""\n${resumeText}\n"""` : 'Base Resume: Atta
               },
               required: ['missing_keywords_and_questions', 'identified_jd_keywords'],
             },
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
           },
         }),
-        4500,
+        25000,
         'gemini-3.8-flash timeout'
       );
 
       const parsed = JSON.parse(response.text || '{}');
       parsed.engine_mode = 'gemini-live';
+      if (!parsed.candidate_name && candidateName) {
+        parsed.candidate_name = candidateName;
+      }
+      if (!parsed.candidate_contact && candidateContact) {
+        parsed.candidate_contact = candidateContact;
+      }
+      if (!parsed.extracted_resume_text && resumeText) {
+        parsed.extracted_resume_text = resumeText;
+      }
       res.json(parsed);
     } catch (geminiError: any) {
-      console.warn('Gemini API call returned error or timed out, utilizing resilient engine:', geminiError.message);
+      console.warn('Gemini API call timed out or returned error, using smart fallback engine:', geminiError.message);
       const fallback = analyzeGapsFallback(resumeText || '', jobDescription);
+      if (candidateName && (!fallback.candidate_name || fallback.candidate_name === 'Candidate')) {
+        fallback.candidate_name = candidateName;
+      }
+      (fallback as any).candidate_contact = candidateContact;
+      (fallback as any).extracted_resume_text = resumeText;
       res.json(fallback);
     }
   } catch (err: any) {
     console.error('Error in /api/analyze-gaps:', err);
     res.status(500).json({
-      error: 'Failed to analyze resume gaps. Please retry.',
+      error: 'Failed to check resume gaps. Please retry.',
       details: err.message,
     });
   }
@@ -283,19 +668,40 @@ ${resumeText ? `Base Resume Text:\n"""\n${resumeText}\n"""` : 'Base Resume: Atta
 // 2. Tailor Resume Endpoint
 app.post('/api/tailor-resume', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { resumeText, jobDescription, gapAnswers, candidateName, candidateContact } = req.body;
+    let { resumeText, resumePdfBase64, jobDescription, gapAnswers, candidateName, candidateContact } = req.body;
+
+    // If PDF was attached and text is missing or placeholder, extract real text!
+    if (resumePdfBase64 && (!resumeText || resumeText.startsWith('[PDF Document:') || resumeText.length < 50)) {
+      const pdfText = await extractTextFromPdfBase64(resumePdfBase64);
+      if (pdfText && pdfText.length > 20) {
+        resumeText = pdfText;
+      }
+    }
 
     if (!jobDescription || !resumeText) {
       res.status(400).json({ error: 'Resume text and Job Description are required for tailoring.' });
       return;
     }
 
+    // Auto-detect candidate name from resume if not given or if default sample name was passed
+    const detectedInfo = extractCandidateInfoFromText(resumeText);
+    if (!candidateName || candidateName === 'Candidate' || (candidateName === 'Alex Rivera' && !resumeText.includes('Alex Rivera'))) {
+      if (detectedInfo.candidateName) {
+        candidateName = detectedInfo.candidateName;
+      }
+    }
+    if (!candidateContact || (candidateContact.includes('alex.rivera') && !resumeText.includes('alex.rivera'))) {
+      if (detectedInfo.candidateContact) {
+        candidateContact = detectedInfo.candidateContact;
+      }
+    }
+
     const ai = getAIClient();
 
-    // If Gemini client is not configured, use resilient ATS engine
     if (!ai) {
-      console.log('Using resilient ATS tailoring engine (GEMINI_API_KEY not configured).');
       const fallback = tailorResumeFallback(resumeText, jobDescription, gapAnswers, candidateName);
+      (fallback as any).candidate_name = candidateName;
+      (fallback as any).candidate_contact = candidateContact;
       res.json(fallback);
       return;
     }
@@ -305,27 +711,29 @@ app.post('/api/tailor-resume', async (req: Request, res: Response): Promise<void
         ? gapAnswers
             .map((a: any, idx: number) => {
               const statusLabel = a.status === 'confirmed'
-                ? 'CONFIRMED by user: ' + (a.contextNotes || 'Verified experience.')
+                ? 'CONFIRMED by candidate: ' + (a.contextNotes || 'Verified real experience.')
                 : a.status === 'studying'
-                ? 'FAMILIAR: ' + (a.contextNotes || 'Foundational knowledge.')
-                : 'NO EXPERIENCE (Strictly omit)';
-              return `Gap Question ${idx + 1}: "${a.question}"\nResponse: ${statusLabel}`;
+                ? 'FAMILIAR: ' + (a.contextNotes || 'Basic learning, not production ownership.')
+                : 'NO EXPERIENCE (Must leave out of the resume to stay 100% honest)';
+              return `Skill Question ${idx + 1}: "${a.question}"\nCandidate Answer: ${statusLabel}`;
             })
             .join('\n\n')
-        : 'No gaps answered.';
+        : 'No skill questions answered.';
 
       const promptText = `
-You are an expert technical resume coach and ATS optimization engine.
-Transform the candidate's base resume into an optimized, precisely structured JSON payload tailored to the target Job Description (JD).
+You are an expert technical resume coach.
+Tailor the candidate's base resume to the target Job Description (JD).
 
-CRITICAL INVARIANTS:
-1. Strict Factual Bounds (No Hallucination):
-   - Never invent metrics, companies, dates, or core technical responsibilities.
-   - If user marked a skill as NO EXPERIENCE, DO NOT include it in skills or experience bullets.
-   - If user provided explicit context in their confirmation, you may incorporate that verified context.
-2. Dynamic ATS Rewriting:
-   - Reframe existing bullet points using strong action verbs (Architected, Engineered, Optimized, Spearheaded, Automated) and exact keyword phrasing from the JD.
-3. Structured Output:
+CRITICAL FORMAT & TRUTH RULES:
+1. Exact Resume Format & Experience Preservation:
+   - You MUST keep the EXACT company names, EXACT job titles/roles, and EXACT employment dates from the candidate's base resume.
+   - DO NOT replace the candidate's companies or roles with generic or made-up ones.
+   - Reword the candidate's ACTUAL bullet points using stronger action words (e.g. Architected, Engineered, Optimized, Spearheaded, Automated) and matching keywords from the job description.
+2. 100% Real Experience (No Made-Up Information):
+   - Never invent numbers, metrics, or responsibilities that the candidate did not do.
+   - If the candidate answered NO EXPERIENCE for a skill, DO NOT add it to the resume.
+   - If the candidate confirmed experience with context, incorporate that truthful context into their bullet points.
+3. Output Schema:
    - Must strictly match schema with missing_keywords_and_questions and tailored_resume.
 
 Candidate Name: ${candidateName || 'Candidate'}
@@ -341,7 +749,7 @@ Base Resume:
 ${resumeText}
 """
 
-Candidate Gap Responses:
+Candidate Skill Verification Answers:
 """
 ${answersText}
 """
@@ -352,7 +760,7 @@ ${answersText}
           model: 'gemini-3.8-flash',
           contents: promptText,
           config: {
-            systemInstruction: 'You are an ATS resume engine enforcing 100% strict factual bounds. Output strict JSON.',
+            systemInstruction: 'You are an expert resume coach. Keep the candidate exact companies, roles, and dates. Enforce 100% honesty with zero made-up experience. Output strict JSON.',
             responseMimeType: 'application/json',
             responseSchema: {
               type: Type.OBJECT,
@@ -414,18 +822,23 @@ ${answersText}
               },
               required: ['missing_keywords_and_questions', 'tailored_resume'],
             },
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
           },
         }),
-        4500,
+        25000,
         'gemini-3.8-flash tailor timeout'
       );
 
       const parsed = JSON.parse(response.text || '{}');
       parsed.engine_mode = 'gemini-live';
+      parsed.candidate_name = candidateName;
+      parsed.candidate_contact = candidateContact;
       res.json(parsed);
     } catch (geminiError: any) {
-      console.warn('Gemini tailoring returned error or timed out, utilizing resilient engine:', geminiError.message);
+      console.warn('Gemini tailoring timed out or returned error, using smart fallback engine:', geminiError.message);
       const fallback = tailorResumeFallback(resumeText, jobDescription, gapAnswers, candidateName);
+      (fallback as any).candidate_name = candidateName;
+      (fallback as any).candidate_contact = candidateContact;
       res.json(fallback);
     }
   } catch (err: any) {

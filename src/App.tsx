@@ -49,6 +49,7 @@ export default function App() {
   const [isJsonModalOpen, setIsJsonModalOpen] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [engineMode, setEngineMode] = useState<string>('gemini-live');
+  const [isSampleData, setIsSampleData] = useState<boolean>(true);
 
   // Initialize with the first realistic preset scenario on first load
   useEffect(() => {
@@ -56,6 +57,7 @@ export default function App() {
   }, []);
 
   const handleSelectPreset = (preset: PresetScenario) => {
+    setIsSampleData(true);
     setCandidateName(preset.candidateName);
     setCandidateContact(preset.candidateContact);
     setResumeText(preset.resumeText);
@@ -68,7 +70,8 @@ export default function App() {
     setErrorMessage(null);
   };
 
-  const handleReset = () => {
+  const handleClearSampleData = () => {
+    setIsSampleData(false);
     setCandidateName('');
     setCandidateContact('');
     setResumeText('');
@@ -79,6 +82,10 @@ export default function App() {
     setRawResponse(null);
     setTailoredResume(null);
     setErrorMessage(null);
+  };
+
+  const handleReset = () => {
+    handleClearSampleData();
     setActiveTab('workspace');
   };
 
@@ -110,8 +117,16 @@ export default function App() {
 
       const data: GapAnalysisResponse & { engine_mode?: string } = await res.json();
 
-      if (data.candidate_name && !candidateName) {
+      // If user uploaded their own resume/PDF, populate their real candidate name and contact!
+      if (data.candidate_name && (!candidateName || isSampleData || candidateName === 'Alex Rivera')) {
         setCandidateName(data.candidate_name);
+        setIsSampleData(false);
+      }
+      if (data.candidate_contact && (!candidateContact || isSampleData || candidateContact.includes('alex.rivera'))) {
+        setCandidateContact(data.candidate_contact);
+      }
+      if (data.extracted_resume_text && (!resumeText || resumeText.startsWith('[PDF Document:'))) {
+        setResumeText(data.extracted_resume_text);
       }
 
       if (data.engine_mode) {
@@ -156,6 +171,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           resumeText,
+          resumePdfBase64,
           jobDescription,
           candidateName,
           candidateContact,
@@ -176,6 +192,12 @@ export default function App() {
 
       if (data.engine_mode) {
         setEngineMode(data.engine_mode);
+      }
+      if (data.candidate_name) {
+        setCandidateName(data.candidate_name);
+      }
+      if (data.candidate_contact) {
+        setCandidateContact(data.candidate_contact);
       }
 
       setRawResponse(data);
@@ -228,7 +250,10 @@ export default function App() {
               // Intake View
               <IntakeView
                 resumeText={resumeText}
-                setResumeText={setResumeText}
+                setResumeText={(t) => {
+                  setResumeText(t);
+                  setIsSampleData(false);
+                }}
                 resumePdfBase64={resumePdfBase64}
                 setResumePdfBase64={setResumePdfBase64}
                 pdfFileName={pdfFileName}
@@ -236,17 +261,23 @@ export default function App() {
                 jobDescription={jobDescription}
                 setJobDescription={setJobDescription}
                 candidateName={candidateName}
-                setCandidateName={setCandidateName}
+                setCandidateName={(n) => {
+                  setCandidateName(n);
+                  setIsSampleData(false);
+                }}
                 candidateContact={candidateContact}
                 setCandidateContact={setCandidateContact}
                 onRunGapAnalysis={handleRunGapAnalysis}
                 isLoading={isAnalyzingGaps}
                 onSelectPreset={handleSelectPreset}
+                isSampleData={isSampleData}
+                onClearSampleData={handleClearSampleData}
+                onFileExtracted={() => setIsSampleData(false)}
               />
             ) : (
               // Result View
               <div className="space-y-6">
-                {/* 2026 Result Navigation Dock */}
+                {/* Result Navigation Dock */}
                 <div className="no-print bg-zinc-900/60 border border-zinc-800 rounded-2xl p-2.5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl backdrop-blur-md">
                   <div className="flex items-center gap-1.5 w-full sm:w-auto">
                     <button
@@ -259,7 +290,7 @@ export default function App() {
                       }`}
                     >
                       <FileText className="w-3.5 h-3.5 text-indigo-400" />
-                      ATS Document View
+                      Tailored Resume
                     </button>
 
                     <button
@@ -272,7 +303,7 @@ export default function App() {
                       }`}
                     >
                       <Split className="w-3.5 h-3.5 text-emerald-400" />
-                      Semantic Diff
+                      Before & After
                     </button>
 
                     <button
@@ -285,7 +316,7 @@ export default function App() {
                       }`}
                     >
                       <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
-                      ATS Analytics
+                      Match Breakdown
                     </button>
                   </div>
 
@@ -296,7 +327,7 @@ export default function App() {
                       className="px-3 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-950 hover:bg-zinc-800 rounded-xl border border-zinc-800 flex items-center gap-1 transition-colors font-mono"
                     >
                       <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
-                      Gaps ({gaps.length})
+                      Missing Skills ({gaps.length})
                     </button>
 
                     <button
@@ -346,21 +377,21 @@ export default function App() {
                         </div>
                         <div>
                           <h4 className="text-sm font-bold text-white">
-                            Strict Factual Bounds Verification Certificate
+                            100% Real Experience Guarantee
                           </h4>
                           <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                            Every single metric, role, tenure date, and core achievement has been mapped directly from your base resume or verified in Phase 1. Missing JD requirements that you marked as unexperienced have been strictly omitted to protect your interview integrity.
+                            Your exact company names, roles, and dates are preserved directly from your original resume. Missing skills that you haven't used yet are excluded to keep your resume 100% honest and accurate.
                           </p>
 
                           <div className="mt-4 flex flex-wrap gap-4 text-xs font-medium text-zinc-300 font-mono">
                             <span className="flex items-center gap-1.5 text-emerald-400">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Zero Fabricated Companies
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Exact Companies Kept
                             </span>
                             <span className="flex items-center gap-1.5 text-emerald-400">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Zero Hallucinated Metrics
+                              <CheckCircle2 className="w-3.5 h-3.5" /> No Fake Numbers or Dates
                             </span>
                             <span className="flex items-center gap-1.5 text-emerald-400">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> High-Impact Action Verb Reframing
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Stronger Action Words
                             </span>
                           </div>
                         </div>
@@ -379,13 +410,13 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-zinc-800/80 gap-4">
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <span>Phase 1: Gap Analysis Questionnaire</span>
+                  <span>Missing Skills Questions</span>
                   <span className="text-xs font-semibold text-indigo-400 bg-indigo-950/60 border border-indigo-800/80 px-2 py-0.5 rounded font-mono">
-                    {gaps.length} Requirements Identified
+                    {gaps.length} Skills Checked
                   </span>
                 </h2>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Answer the verification questions to decide whether each missing JD requirement should be confirmed with context or omitted.
+                  Answer a few quick questions so we know whether to include or leave out skills from the job post.
                 </p>
               </div>
 
@@ -396,7 +427,7 @@ export default function App() {
                   className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl flex items-center gap-1.5 transition-colors shadow-md shadow-indigo-600/30"
                 >
                   <HelpCircle className="w-4 h-4" />
-                  Launch Interactive Wizard
+                  Launch Skill Questions
                 </button>
               </div>
             </div>
@@ -512,7 +543,7 @@ export default function App() {
                     disabled={isTailoringResume}
                     className="px-6 py-3 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-all shadow-md shadow-indigo-600/30 flex items-center gap-2"
                   >
-                    {isTailoringResume ? 'Tailoring Resume...' : 'Generate Tailored Resume (Phase 2)'}
+                    {isTailoringResume ? 'Creating Tailored Resume...' : 'Create Tailored Resume'}
                   </button>
                 </div>
               </div>

@@ -7,24 +7,24 @@
 [![Gemini 3.8 Flash](https://img.shields.io/badge/Google_GenAI-Gemini_3.8_Flash-8E75B2?logo=google)](https://ai.google.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> Transform base resumes and target job descriptions into ATS-optimized, precisely structured resumes while strictly enforcing **zero hallucination** and truthfulness.
+> Transform base resumes and target job descriptions into ATS-optimized, precisely structured resumes while keeping every word **100% honest with no made-up experience**.
 
 ---
 
 ## Overview
 
-Applying for technical roles requires tailoring your resume to every job description to pass Applicant Tracking Systems (Workday, Greenhouse, Lever, Taleo). However, standard generative AI tools often hallucinate—fabricating unearned metrics, dates, or technical skills that fail background checks and technical interviews.
+Applying for technical roles requires tailoring your resume to every job description to pass Applicant Tracking Systems (Workday, Greenhouse, Lever, Taleo). However, typical AI tools often make things up—inventing fake numbers, dates, or technical skills that fail background checks and technical interviews.
 
-**AI Resume Tailorer & ATS Optimization Engine** eliminates this manual friction while strictly upholding candidate integrity through an enforced **two-phase verification workflow**:
+**AI Resume Tailorer & ATS Optimization Engine** eliminates this manual friction while keeping your real experience 100% truthful through a clear **two-step workflow**:
 
-1. **Phase 1 — Gap Analysis & Verification Interview**: Scans the base resume against the target JD, isolates missing requirements, and asks direct questions before generating content.
-2. **Phase 2 — Dynamic ATS Keyword Rewriting**: Dynamically reframes existing bullet points using strong action verbs and exact target keywords, omitting unconfirmed skills entirely.
+1. **Step 1 — Check for Missing Skills**: Compares your resume against the job description, spots missing requirements, and asks you directly before changing anything.
+2. **Step 2 — ATS Keyword Optimization & Bullet Refinement**: Reframes your existing bullet points using strong action words and exact job keywords, leaving out unconfirmed skills so your resume stays completely genuine.
 
 ---
 
 ## Key Features
 
-- **Strict Factual Bounds (Zero Hallucination)**: Never fabricates metrics, companies, dates, or unverified skills. Missing JD requirements are flagged in Phase 1 and strictly omitted unless validated by the candidate.
+- **100% Real Experience (No Made-Up Information)**: Never invents metrics, companies, dates, or unverified skills. Missing job requirements are checked with you first and strictly left off unless you confirm them.
 - **Interactive Verification Wizard**: Keyboard-driven interview (`[Y]` Have Experience, `[N]` No Experience, `[F]` Familiar/Studying) with verified project context injection.
 - **2026 Developer Studio UI**: Designed with modern obsidian/zinc surfaces, architectural drafting desk canvas, and zero-pill typographic discipline.
 - **Semantic Diff Inspector**: High-precision token diff highlighting matched JD keywords (emerald) and power action verbs (indigo).

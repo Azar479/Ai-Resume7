@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { TailoredResume, MatchInsights } from '../types';
-import { CheckCircle2, ShieldCheck, Sparkles, SlidersHorizontal } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 
 interface DiffViewerProps {
   baseResumeText: string;
@@ -9,7 +9,6 @@ interface DiffViewerProps {
 }
 
 export function DiffViewer({
-  baseResumeText,
   tailoredResume,
   insights,
 }: DiffViewerProps) {
@@ -43,7 +42,7 @@ export function DiffViewer({
               <span
                 key={i}
                 className="bg-emerald-950/80 text-emerald-300 font-semibold px-1.5 py-0.5 rounded border border-emerald-700/60 font-mono mx-0.5"
-                title="Matched Target JD Keyword"
+                title="Matched Job Keyword"
               >
                 {part}
               </span>
@@ -53,7 +52,7 @@ export function DiffViewer({
               <span
                 key={i}
                 className="bg-indigo-950/80 text-indigo-300 font-semibold px-1.5 py-0.5 rounded border border-indigo-700/60 font-mono mx-0.5"
-                title="High-Impact ATS Action Verb"
+                title="Strong Action Word"
               >
                 {part}
               </span>
@@ -67,17 +66,17 @@ export function DiffViewer({
 
   return (
     <div className="space-y-6">
-      {/* 2026 Controls Bar */}
+      {/* Controls Bar */}
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 shadow-xl backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <span>2026 Semantic Diff & Action Verb Reframing</span>
+            <span>Before & After: See What Changed</span>
             <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded">
-              Truth Verified
+              100% Real Experience
             </span>
           </h3>
           <p className="text-xs text-zinc-400 mt-1">
-            Visual inspection of dynamically injected JD keywords and high-impact action verbs.
+            See how your actual experience bullet points were reworded with stronger action words and job keywords.
           </p>
         </div>
 
@@ -89,34 +88,34 @@ export function DiffViewer({
               onChange={(e) => setHighlightKeywords(e.target.checked)}
               className="rounded border-zinc-700 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
             />
-            Highlight Keywords & Action Verbs
+            Highlight Keywords & Action Words
           </label>
         </div>
       </div>
 
-      {/* High-Precision Legend Strip */}
+      {/* Legend Strip */}
       {highlightKeywords && (
         <div className="flex flex-wrap items-center gap-4 text-xs bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 font-mono">
-          <span className="text-zinc-500 uppercase text-[11px]">Diff Tokens:</span>
+          <span className="text-zinc-500 uppercase text-[11px]">Key Highlights:</span>
           <span className="inline-flex items-center gap-1.5 text-emerald-300">
             <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500" />
-            Matched Target JD Keyword
+            Matched Job Keyword
           </span>
           <span className="inline-flex items-center gap-1.5 text-indigo-300">
             <span className="w-2.5 h-2.5 rounded-xs bg-indigo-500" />
-            ATS Action Verb Reframing
+            Strong Action Word
           </span>
           <span className="text-zinc-700">|</span>
           <span className="text-zinc-400 italic">
-            Zero hallucinated metrics or unverified roles.
+            Your real company names, job titles, and dates are strictly kept.
           </span>
         </div>
       )}
 
-      {/* Summary Diff Box */}
+      {/* Summary Box */}
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 shadow-xl backdrop-blur-md">
         <div className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2 font-mono">
-          Tailored Executive Summary
+          Tailored Professional Summary
         </div>
         <div className="text-xs sm:text-sm text-zinc-200 leading-relaxed bg-zinc-950 border border-zinc-800/80 rounded-xl p-4 font-sans">
           {renderHighlightedText(tailoredResume.summary)}
@@ -127,10 +126,10 @@ export function DiffViewer({
       <div className="space-y-5">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider font-mono">
-            Optimized Experience Bullets
+            Improved Experience Bullets (Your Exact Companies & Dates Kept)
           </h4>
           <span className="text-xs text-zinc-500 font-mono">
-            {tailoredResume.experiences.length} Positions Reframed
+            {tailoredResume.experiences.length} Positions Tailored
           </span>
         </div>
 
@@ -167,7 +166,7 @@ export function DiffViewer({
       {/* Skills Matrix */}
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 shadow-xl backdrop-blur-md">
         <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3 font-mono">
-          Categorized & Prioritized Technical Skills
+          Technical Skills & Keywords
         </h4>
         <div className="flex flex-wrap gap-2">
           {tailoredResume.skills.map((skill, sIdx) => {

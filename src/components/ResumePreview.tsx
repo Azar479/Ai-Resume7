@@ -129,7 +129,7 @@ export function ResumePreview({
 
           <span className="text-xs text-zinc-600">/</span>
           <span className="text-xs text-zinc-400 font-mono hidden md:inline">
-            Single-Column ATS Compliance Verified
+            Clean Format Matching Your Input Resume
           </span>
         </div>
 

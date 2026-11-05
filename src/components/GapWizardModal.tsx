@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { GapItem, GapStatus } from '../types';
 import {
   HelpCircle,
-  CheckCircle2,
-  XCircle,
-  BookOpen,
   ArrowRight,
   ArrowLeft,
   Sparkles,
   ShieldAlert,
   X,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface GapWizardModalProps {
@@ -31,7 +29,7 @@ export function GapWizardModal({
 }: GapWizardModalProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Keyboard navigation support for 2026 UX
+  // Keyboard navigation support
   useEffect(() => {
     if (!isOpen) return;
 
@@ -89,13 +87,13 @@ export function GapWizardModal({
         <div className="px-6 py-4 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/70 border border-indigo-800/80 px-2 py-0.5 rounded">
-                Phase 1: Verification Interview
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-800/80 px-2 py-0.5 rounded">
+                Quick Skill Check
               </span>
-              <span className="text-xs text-zinc-500 font-mono">· Strict Factual Bounds</span>
+              <span className="text-xs text-zinc-500 font-mono">· 100% Real Experience</span>
             </div>
             <h2 className="text-base font-bold text-white mt-1">
-              Verify Missing Target Requirements
+              Review Skills Needed for This Job
             </h2>
           </div>
           <button
@@ -112,10 +110,10 @@ export function GapWizardModal({
         <div className="bg-zinc-900/60 border-b border-zinc-800 px-6 py-3">
           <div className="flex items-center justify-between text-xs text-zinc-400 mb-2 font-mono">
             <span>
-              Question {currentIndex + 1} of {total}
+              Skill {currentIndex + 1} of {total}
             </span>
             <span className="tabular-nums text-zinc-300">
-              {answeredCount}/{total} verified ({progressPercent}%)
+              {answeredCount}/{total} answered ({progressPercent}%)
             </span>
           </div>
           <div className="w-full bg-zinc-800 h-1 rounded-full overflow-hidden">
@@ -143,7 +141,7 @@ export function GapWizardModal({
                     ? 'bg-amber-950/80 text-amber-300 border border-amber-800'
                     : 'bg-zinc-900 border border-zinc-800 text-zinc-500'
                 }`}
-                title={`Jump to Question ${idx + 1}`}
+                title={`Jump to Skill ${idx + 1}`}
               >
                 Q{idx + 1}
                 {gap.status === 'confirmed' && '✓'}
@@ -163,13 +161,13 @@ export function GapWizardModal({
               </div>
               <div>
                 <span className="text-[10px] font-mono font-bold text-indigo-400 uppercase tracking-wider">
-                  Target Requirement Detected
+                  Required Skill in Job Post
                 </span>
                 <p className="text-base font-semibold text-white mt-1 leading-snug">
                   {currentGap.question}
                 </p>
                 <p className="text-xs text-zinc-500 mt-2">
-                  This skill is prioritized in the target JD but not found in your base resume. Choose whether to verify or omit it.
+                  This skill is highlighted in the job description. Let us know if you have used it so we only include your honest experience.
                 </p>
               </div>
             </div>
@@ -178,8 +176,8 @@ export function GapWizardModal({
           {/* Verification Choice Prompt Buttons */}
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs font-mono uppercase tracking-wider text-zinc-400">
-              <span>Select Honest Verification:</span>
-              <span className="text-[10px] text-zinc-500">Shortcuts: [Y] [N] [F]</span>
+              <span>Choose Your Answer:</span>
+              <span className="text-[10px] text-zinc-500">Press: [Y] Yes · [N] No · [F] Learning</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -194,13 +192,13 @@ export function GapWizardModal({
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-emerald-400">Yes, Have Experience</span>
+                  <span className="text-xs font-bold text-emerald-400">Yes, I Have Used This</span>
                   <kbd className="font-mono text-[10px] text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">
                     Y
                   </kbd>
                 </div>
                 <span className="text-[11px] text-zinc-400 leading-tight">
-                  Legitimate hands-on production or project usage.
+                  Real experience on a job or personal project.
                 </span>
               </button>
 
@@ -221,7 +219,7 @@ export function GapWizardModal({
                   </kbd>
                 </div>
                 <span className="text-[11px] text-zinc-400 leading-tight">
-                  Omit strictly to prevent AI hallucination and protect truth.
+                  Leave this off my resume to stay 100% honest.
                 </span>
               </button>
 
@@ -236,13 +234,13 @@ export function GapWizardModal({
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-amber-400">Familiar / Studying</span>
+                  <span className="text-xs font-bold text-amber-400">Familiar / Learning</span>
                   <kbd className="font-mono text-[10px] text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">
                     F
                   </kbd>
                 </div>
                 <span className="text-[11px] text-zinc-400 leading-tight">
-                  Foundational knowledge; frame truthfully without overclaiming.
+                  Studying or foundational knowledge, not production.
                 </span>
               </button>
             </div>
@@ -252,15 +250,15 @@ export function GapWizardModal({
           {currentGap.status === 'confirmed' && (
             <div className="space-y-1.5 bg-emerald-950/20 border border-emerald-800/60 rounded-2xl p-4 transition-all">
               <label className="text-xs font-bold text-emerald-300 block">
-                Provide Verified Project Context:
+                How or where did you use it?
               </label>
               <p className="text-[11px] text-emerald-400/80">
-                Mention where or how you used it (e.g. &ldquo;Implemented Kubernetes pods & Helm charts for the telemetry microservice at Veloce&rdquo;).
+                A short detail helps weave it naturally into your real work (e.g. &ldquo;Used Kubernetes and Helm for deploying microservices&rdquo;).
               </p>
               <textarea
                 value={currentGap.contextNotes}
                 onChange={handleNotesChange}
-                placeholder="Where, when, or in which project did you use this technology or skill?"
+                placeholder="Where, when, or in which project did you use this skill?"
                 rows={3}
                 className="w-full text-xs font-sans p-3 bg-zinc-950 border border-emerald-700/60 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-emerald-500 text-zinc-100 placeholder:text-zinc-600"
               />
@@ -270,12 +268,12 @@ export function GapWizardModal({
           {currentGap.status === 'studying' && (
             <div className="space-y-1.5 bg-amber-950/20 border border-amber-800/60 rounded-2xl p-4 transition-all">
               <label className="text-xs font-bold text-amber-300 block">
-                Detail Your Exposure:
+                Describe what you know:
               </label>
               <textarea
                 value={currentGap.contextNotes}
                 onChange={handleNotesChange}
-                placeholder="e.g. Completed official documentation lab, built a small proof of concept, or studying for certification..."
+                placeholder="e.g. Completed a course, built a tutorial demo, or studying for a test..."
                 rows={2}
                 className="w-full text-xs font-sans p-3 bg-zinc-950 border border-amber-700/60 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-amber-500 text-zinc-100 placeholder:text-zinc-600"
               />
@@ -286,7 +284,7 @@ export function GapWizardModal({
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-400 flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-zinc-500 shrink-0" />
               <span>
-                <strong>Truthfulness Enforced:</strong> This skill will NOT be added to your resume bullets or technical skills list.
+                <strong>Kept Honest:</strong> This skill will NOT be added to your resume bullets or technical skills list.
               </span>
             </div>
           )}
@@ -320,7 +318,7 @@ export function GapWizardModal({
                 type="button"
                 onClick={handleMarkAllRemainingNo}
                 className="text-[11px] text-zinc-500 hover:text-zinc-300 underline ml-2 whitespace-nowrap font-mono"
-                title="Mark all unanswered questions as No Experience"
+                title="Mark all remaining questions as No Experience"
               >
                 Mark rest as No
               </button>
@@ -345,12 +343,12 @@ export function GapWizardModal({
               {isGenerating ? (
                 <>
                   <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Generating Tailored Resume...
+                  Creating Tailored Resume...
                 </>
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5" />
-                  Generate Tailored Resume (Phase 2)
+                  Create Tailored Resume
                 </>
               )}
             </button>

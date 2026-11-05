@@ -24,12 +24,15 @@ export interface ResumeEngineResponse {
   missing_keywords_and_questions: string[];
   tailored_resume: TailoredResume;
   match_insights?: MatchInsights;
+  candidate_name?: string;
+  candidate_contact?: string;
 }
 
 export interface GapAnalysisResponse {
   missing_keywords_and_questions: string[];
   identified_jd_keywords?: string[];
   candidate_name?: string;
+  candidate_contact?: string;
   current_title?: string;
   extracted_resume_text?: string;
   base_skills_found?: string[];

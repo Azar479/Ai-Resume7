@@ -22,16 +22,16 @@ export function Header({
             AI Resume Tailorer
           </span>
           <span className="text-xs text-zinc-500 font-mono hidden sm:inline">
-            / 2026 ATS Studio
+            / 100% Truthful ATS Match
           </span>
           {engineMode && (
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hidden lg:inline">
-              {engineMode === 'gemini-live' ? '⚡ Gemini 3.8 Live' : '🛡 Resilient Engine'}
+              {engineMode === 'gemini-live' ? '⚡ Gemini 3.8 AI' : '🛡 Smart Engine'}
             </span>
           )}
         </div>
 
-        {/* Zone 2: 4 single-line nav links with 2026 micro typography */}
+        {/* Zone 2: 4 single-line nav links with simple, friendly labels */}
         <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-zinc-400">
           <button
             type="button"
@@ -43,7 +43,7 @@ export function Header({
             }`}
           >
             <span className="font-mono text-[10px] text-zinc-500">01</span>
-            Workspace
+            Resume & Job
           </button>
 
           <button
@@ -56,7 +56,7 @@ export function Header({
             }`}
           >
             <span className="font-mono text-[10px] text-zinc-500">02</span>
-            Gap Verification
+            Skills Check
           </button>
 
           <button
@@ -72,7 +72,7 @@ export function Header({
             }`}
           >
             <span className="font-mono text-[10px] text-zinc-500">03</span>
-            Semantic Diff
+            Before & After
           </button>
 
           <button
@@ -88,7 +88,7 @@ export function Header({
             }`}
           >
             <span className="font-mono text-[10px] text-zinc-500">04</span>
-            Export Hub
+            Download & Print
           </button>
         </nav>
 

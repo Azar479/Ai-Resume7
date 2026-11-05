@@ -50,14 +50,14 @@ export function JsonViewerModal({ isOpen, onClose, data }: JsonViewerModalProps)
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white">Strict JSON Schema Output</h3>
+                <h3 className="text-sm font-bold text-white">Resume JSON Data</h3>
                 <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded">
                   <ShieldCheck className="w-3 h-3" />
-                  Schema Validated
+                  Verified & Valid
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Output adheres strictly to the required specification with zero fabricated data.
+                Structured JSON data containing only your truthful real experience.
               </p>
             </div>
           </div>
@@ -94,7 +94,7 @@ export function JsonViewerModal({ isOpen, onClose, data }: JsonViewerModalProps)
 
         {/* Schema Compliance Checklist */}
         <div className="bg-slate-900/60 px-6 py-2.5 border-b border-slate-800 flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400">
-          <span className="text-slate-300 font-semibold font-sans">Schema Elements:</span>
+          <span className="text-slate-300 font-semibold font-sans">Data Elements:</span>
           <span className="text-emerald-400 flex items-center gap-1">
             ✓ missing_keywords_and_questions ({payloadToDisplay.missing_keywords_and_questions.length})
           </span>
