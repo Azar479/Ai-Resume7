@@ -18,16 +18,21 @@ export function exportToPlainText(
   candidateName = 'Candidate Name',
   candidateContact = ''
 ): void {
-  const lines: string[] = [];
+  let textContent = '';
 
-  // Header
-  lines.push(candidateName.toUpperCase());
-  if (candidateContact) {
-    lines.push(candidateContact);
-  }
-  lines.push('');
+  if (resume.full_tailored_text && resume.full_tailored_text.length > 50) {
+    textContent = resume.full_tailored_text;
+  } else {
+    const lines: string[] = [];
 
-  const sections = resume.blueprint?.sections || resume.sections;
+    // Header
+    lines.push(candidateName.toUpperCase());
+    if (candidateContact) {
+      lines.push(candidateContact);
+    }
+    lines.push('');
+
+    const sections = resume.blueprint?.sections || resume.sections;
 
   if (sections && sections.length > 0) {
     sections.forEach((sec) => {
@@ -106,10 +111,9 @@ export function exportToPlainText(
     lines.push('TECHNICAL SKILLS & COMPETENCIES');
     lines.push('================================================================');
     lines.push(resume.skills.join(' • '));
-    lines.push('');
+    }
+    textContent = lines.join('\n');
   }
-
-  const textContent = lines.join('\n');
   const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -130,20 +134,36 @@ export function exportToWordDoc(
 
   let bodyHtml = '';
 
-  if (sections && sections.length > 0) {
-    bodyHtml = sections
+  const filteredSections = (sections && sections.length > 0)
+    ? sections.filter((s) => s.title.toLowerCase() !== candidateName.toLowerCase())
+    : null;
+
+  if (filteredSections && filteredSections.length > 0) {
+    bodyHtml = filteredSections
       .map((sec) => {
         let secContent = '';
 
         if (sec.type === 'summary') {
           secContent = `<p style="font-size: 10pt; line-height: 1.5; color: #1F2937;">${escapeHtml(sec.content || resume.summary)}</p>`;
         } else if (sec.type === 'skills') {
-          const skills = sec.skills || resume.skills;
-          secContent = `
-            <p style="font-size: 10pt; line-height: 1.5; color: #1F2937; margin: 0;">
-              ${skills.map((s) => `<strong>${escapeHtml(s)}</strong>`).join(' &nbsp;•&nbsp; ')}
-            </p>
-          `;
+          if (sec.skill_categories && sec.skill_categories.length > 0) {
+            secContent = sec.skill_categories
+              .map(
+                (cat) => `
+              <p style="font-size: 10pt; line-height: 1.45; color: #1F2937; margin: 0 0 3pt 0;">
+                <strong style="color: #111827;">${escapeHtml(cat.category)}:</strong> ${escapeHtml(cat.items.join(', '))}
+              </p>
+            `
+              )
+              .join('');
+          } else {
+            const skills = sec.skills || resume.skills;
+            secContent = `
+              <p style="font-size: 10pt; line-height: 1.5; color: #1F2937; margin: 0;">
+                ${skills.map((s) => `<strong>${escapeHtml(s)}</strong>`).join(' &nbsp;•&nbsp; ')}
+              </p>
+            `;
+          }
         } else if (sec.type === 'experience') {
           const exps = sec.experiences || resume.experiences;
           secContent = exps

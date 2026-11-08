@@ -13,6 +13,7 @@ import {
   Maximize2,
   Columns,
   Sparkles,
+  Layers,
 } from 'lucide-react';
 import {
   exportToPlainText,
@@ -48,9 +49,13 @@ export function ResumePreview({
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'standard' | 'side-by-side' | 'focused'>('standard');
+  const [layoutStyle, setLayoutStyle] = useState<'document' | 'text'>('document');
 
   const blueprint = resume.blueprint;
-  const sections = blueprint?.sections || resume.sections;
+  const rawSections = blueprint?.sections || resume.sections || [];
+  const sections = rawSections.filter(
+    (s) => s.title.toLowerCase() !== candidateName.toLowerCase()
+  );
 
   // Header styling based on blueprint
   const headerAlignment = blueprint?.header_alignment === 'left' ? 'text-left' : 'text-center';
@@ -145,50 +150,27 @@ export function ResumePreview({
   };
 
   const handleCopyText = async () => {
-    const lines: string[] = [];
-    lines.push(candidateName.toUpperCase());
-    if (candidateContact) lines.push(candidateContact);
-    lines.push('');
+    const textToCopy =
+      resume.full_tailored_text && resume.full_tailored_text.length > 50
+        ? resume.full_tailored_text
+        : `${candidateName.toUpperCase()}\n${candidateContact}\n\nSUMMARY:\n${resume.summary}\n\nEXPERIENCE:\n` +
+          resume.experiences
+            .map(
+              (e) =>
+                `${e.company} | ${e.role} (${e.dates})\n` +
+                e.bullet_points.map((b) => `• ${b}`).join('\n')
+            )
+            .join('\n\n') +
+          `\n\nSKILLS:\n${resume.skills.join(', ')}`;
 
-    if (sections && sections.length > 0) {
-      sections.forEach((sec) => {
-        lines.push(`\n=== ${sec.title.toUpperCase()} ===`);
-        if (sec.type === 'summary') lines.push(sec.content || resume.summary);
-        else if (sec.type === 'skills') lines.push((sec.skills || resume.skills).join(' · '));
-        else if (sec.type === 'experience') {
-          (sec.experiences || resume.experiences).forEach((e) => {
-            lines.push(`${e.company} | ${e.role} (${e.dates})`);
-            e.bullet_points.forEach((b) => lines.push(`• ${b}`));
-          });
-        } else if (sec.type === 'projects') {
-          (sec.projects || resume.projects || []).forEach((p) => {
-            lines.push(`${p.title} (${p.technologies || ''})`);
-            p.bullet_points.forEach((b) => lines.push(`• ${b}`));
-          });
-        } else if (sec.type === 'education') {
-          (sec.education || resume.education || []).forEach((ed) => {
-            lines.push(`${ed.institution} | ${ed.degree} (${ed.dates})`);
-          });
-        }
-      });
-    } else {
-      lines.push('=== SUMMARY ===\n' + resume.summary);
-      lines.push('\n=== EXPERIENCE ===');
-      resume.experiences.forEach((e) => {
-        lines.push(`${e.company} | ${e.role} (${e.dates})`);
-        e.bullet_points.forEach((b) => lines.push(`• ${b}`));
-      });
-      lines.push('\n=== SKILLS ===\n' + resume.skills.join(' · '));
-    }
-
-    const ok = await copyToClipboard(lines.join('\n'));
+    const ok = await copyToClipboard(textToCopy);
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  // Render a specific section adhering to original format
+  // Render an individual section card
   const renderSection = (sec: any, secIdx: number) => {
     const headingText = sec.title || 'SECTION';
 
@@ -216,7 +198,9 @@ export function ResumePreview({
     }
 
     if (sec.type === 'skills') {
-      const skillsList = sec.skills || resume.skills;
+      const skillsList = sec.skills || resume.skills || [];
+      const categories = sec.skill_categories;
+
       return (
         <div key={sec.id || secIdx} className="mb-6">
           <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-2.5">
@@ -232,6 +216,15 @@ export function ResumePreview({
                 placeholder="Comma separated skills..."
               />
               <span className="text-[11px] text-slate-500">Separate skills with commas</span>
+            </div>
+          ) : categories && categories.length > 0 ? (
+            <div className="space-y-1.5 text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
+              {categories.map((cat: any, cIdx: number) => (
+                <div key={cIdx} className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
+                  <span className="font-bold text-slate-950 shrink-0">{cat.category}:</span>
+                  <span className="text-slate-800">{cat.items.join(', ')}</span>
+                </div>
+              ))}
             </div>
           ) : (
             <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
@@ -260,16 +253,20 @@ export function ResumePreview({
           <div className="space-y-5">
             {exps.map((exp: any, expIdx: number) => (
               <div key={expIdx} className="space-y-1.5">
-                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between text-xs sm:text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between text-xs sm:text-sm gap-1">
                   <div className="font-bold text-slate-950">
                     {exp.company}{' '}
-                    <span className="font-normal text-slate-600 italic">
-                      — {exp.role}
-                    </span>
+                    {exp.role && (
+                      <span className="font-normal text-slate-700 italic ml-1">
+                        — {exp.role}
+                      </span>
+                    )}
                   </div>
-                  <div className="text-xs font-mono text-slate-500 shrink-0">
-                    {exp.dates}
-                  </div>
+                  {exp.dates && (
+                    <div className="text-xs font-mono text-slate-600 shrink-0 sm:text-right">
+                      {exp.dates}
+                    </div>
+                  )}
                 </div>
 
                 <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
@@ -325,17 +322,17 @@ export function ResumePreview({
           <div className="space-y-4">
             {projs.map((p: any, pIdx: number) => (
               <div key={pIdx} className="space-y-1.5">
-                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between text-xs sm:text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between text-xs sm:text-sm gap-1">
                   <div className="font-bold text-slate-950">
                     {p.title}{' '}
                     {p.technologies && (
-                      <span className="font-normal text-slate-600 text-xs italic">
+                      <span className="font-normal text-slate-600 text-xs italic ml-1">
                         ({p.technologies})
                       </span>
                     )}
                   </div>
                   {p.dates && (
-                    <div className="text-xs font-mono text-slate-500 shrink-0">
+                    <div className="text-xs font-mono text-slate-600 shrink-0 sm:text-right">
                       {p.dates}
                     </div>
                   )}
@@ -364,10 +361,10 @@ export function ResumePreview({
           <div className="space-y-3">
             {edus.map((edu: any, eIdx: number) => (
               <div key={eIdx} className="text-xs sm:text-sm">
-                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                   <div className="font-bold text-slate-950">{edu.institution}</div>
                   {edu.dates && (
-                    <div className="text-xs font-mono text-slate-500 shrink-0">
+                    <div className="text-xs font-mono text-slate-600 shrink-0 sm:text-right">
                       {edu.dates}
                     </div>
                   )}
@@ -398,9 +395,9 @@ export function ResumePreview({
           <div className="space-y-2">
             {items.map((item: any, itIdx: number) => (
               <div key={itIdx} className="text-xs sm:text-sm">
-                <div className="flex justify-between font-semibold text-slate-950">
+                <div className="flex justify-between font-semibold text-slate-950 gap-1">
                   <span>{item.heading}</span>
-                  {item.dates && <span className="font-mono text-slate-500">{item.dates}</span>}
+                  {item.dates && <span className="font-mono text-slate-600">{item.dates}</span>}
                 </div>
                 {item.content && <p className="text-slate-700 mt-0.5">{item.content}</p>}
                 {item.bullet_points && item.bullet_points.length > 0 && (
@@ -422,30 +419,53 @@ export function ResumePreview({
 
   const PaperSheet = (
     <div className={`print-resume-sheet bg-white text-slate-900 rounded-xl shadow-2xl p-8 sm:p-14 max-w-4xl w-full border border-slate-200/90 transition-all ${fontClass}`}>
-      {/* Candidate Document Header */}
-      <div
-        className={`border-b border-slate-300 pb-5 mb-6 ${headerAlignment}`}
-      >
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 uppercase">
-          {candidateName || 'Candidate Name'}
-        </h1>
-        {candidateContact && (
-          <div className="text-xs text-slate-600 mt-2 tracking-wide font-sans leading-relaxed">
-            {candidateContact}
+      {/* If Text Mode is toggled, show editable text. Otherwise show styled resume document! */}
+      {layoutStyle === 'text' ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200 text-xs font-mono text-slate-500">
+            <span>Plain Text / Markdown Representation</span>
+            <span>Formatted for ATS inputs</span>
           </div>
-        )}
-      </div>
-
-      {/* Dynamic Sections rendered in exact sequence */}
-      {sections && sections.length > 0 ? (
-        sections.map((sec, idx) => renderSection(sec, idx))
+          {isEditing ? (
+            <textarea
+              value={resume.full_tailored_text || ''}
+              onChange={(e) => onUpdateResume({ ...resume, full_tailored_text: e.target.value })}
+              rows={28}
+              className="w-full text-xs font-mono p-4 bg-slate-50 border border-indigo-400 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-900 leading-relaxed"
+            />
+          ) : (
+            <div className="text-xs text-slate-900 font-mono whitespace-pre-wrap leading-relaxed bg-slate-50 p-6 rounded-lg border border-slate-200">
+              {resume.full_tailored_text || 'No text representation available.'}
+            </div>
+          )}
+        </div>
       ) : (
-        <>
-          {/* Default fallback sequence */}
-          {renderSection({ type: 'summary', title: 'Professional Summary' }, 0)}
-          {renderSection({ type: 'experience', title: 'Professional Experience' }, 1)}
-          {renderSection({ type: 'skills', title: 'Technical Skills & Competencies' }, 2)}
-        </>
+        <div>
+          {/* Candidate Document Header */}
+          <div
+            className={`border-b border-slate-300 pb-5 mb-6 ${headerAlignment}`}
+          >
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 uppercase">
+              {candidateName || 'Candidate Name'}
+            </h1>
+            {candidateContact && (
+              <div className="text-xs text-slate-600 mt-2 tracking-wide font-sans leading-relaxed">
+                {candidateContact}
+              </div>
+            )}
+          </div>
+
+          {/* Dynamic Sections rendered in exact sequence */}
+          {sections && sections.length > 0 ? (
+            sections.map((sec, idx) => renderSection(sec, idx))
+          ) : (
+            <>
+              {renderSection({ type: 'summary', title: 'Professional Summary' }, 0)}
+              {renderSection({ type: 'experience', title: 'Professional Experience' }, 1)}
+              {renderSection({ type: 'skills', title: 'Technical Skills & Competencies' }, 2)}
+            </>
+          )}
+        </div>
       )}
     </div>
   );
@@ -455,10 +475,41 @@ export function ResumePreview({
       {/* 2026 Floating Action Toolbar */}
       <div className="no-print bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          {/* Format Presentation Switcher */}
+          <div className="flex items-center gap-1 p-1 bg-zinc-950 rounded-xl border border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setLayoutStyle('document')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors ${
+                layoutStyle === 'document'
+                  ? 'bg-zinc-800 text-white shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Rendered in exact format, layout, and section sequence of your uploaded resume"
+            >
+              <FileText className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Document Preview</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLayoutStyle('text')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
+                layoutStyle === 'text'
+                  ? 'bg-zinc-800 text-white shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="View or copy raw plain-text format"
+            >
+              <Layers className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Raw Text</span>
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => setIsEditing(!isEditing)}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all ${
               isEditing
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
@@ -493,10 +544,9 @@ export function ResumePreview({
             <span>{viewMode === 'focused' ? 'Standard' : 'Focus'}</span>
           </button>
 
-          <span className="text-xs text-zinc-600 hidden md:inline">/</span>
-          <span className="text-xs text-emerald-400 font-mono hidden lg:flex items-center gap-1">
+          <span className="text-xs text-emerald-400 font-mono hidden xl:flex items-center gap-1">
             <Sparkles className="w-3 h-3" />
-            Exact Section Sequence & Header Mirroring
+            Exact Uploaded Resume Format
           </span>
         </div>
 
@@ -560,8 +610,8 @@ export function ResumePreview({
           {/* Left: Original Uploaded Document Preview */}
           <div className="flex flex-col space-y-2">
             <div className="flex items-center justify-between text-xs font-mono text-zinc-400 px-1">
-              <span className="font-bold text-zinc-200">Original Document Preview</span>
-              <span className="text-zinc-500">Source Layout</span>
+              <span className="font-bold text-zinc-200">Original Uploaded Document</span>
+              <span className="text-zinc-500">Source Format</span>
             </div>
             <div className="h-[750px] overflow-hidden rounded-2xl">
               <DocumentViewer

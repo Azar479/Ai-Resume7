@@ -37,6 +37,11 @@ export type SectionType =
   | 'awards'
   | 'custom';
 
+export interface SkillCategoryItem {
+  category: string;
+  items: string[];
+}
+
 export interface DocumentSection {
   id: string;
   title: string;
@@ -46,6 +51,7 @@ export interface DocumentSection {
   education?: EducationItem[];
   projects?: ProjectItem[];
   skills?: string[];
+  skill_categories?: SkillCategoryItem[];
   items?: CustomSectionItem[];
 }
 
@@ -67,6 +73,7 @@ export interface TailoredResume {
   projects?: ProjectItem[];
   blueprint?: DocumentBlueprint;
   sections?: DocumentSection[];
+  full_tailored_text?: string;
 }
 
 export interface MatchInsights {

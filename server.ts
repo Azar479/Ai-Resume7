@@ -350,6 +350,7 @@ interface ParsedSection {
   education?: ParsedEducation[];
   projects?: ParsedProject[];
   skills?: string[];
+  skill_categories?: { category: string; items: string[] }[];
   items?: ParsedCustomItem[];
 }
 
@@ -363,41 +364,157 @@ interface ParsedBlueprint {
   sections: ParsedSection[];
 }
 
-function classifySectionHeader(line: string): { type: ParsedSection['type']; title: string } | null {
-  const clean = line.replace(/^[\s#*_\-=~]+|[\s#*_\-=~:]+$/g, '').trim();
-  if (clean.length < 2 || clean.length > 55) return null;
-  if (clean.split(/\s+/).length > 6 || /[.!?]$/.test(clean)) return null;
+function classifySectionHeader(
+  line: string,
+  lineIndex: number = 999,
+  candidateName: string = ''
+): { type: ParsedSection['type']; title: string } | null {
+  const clean = line.replace(/^[\s#*_\-=~•▪>|:]+|[\s#*_\-=~•▪>|:]+$/g, '').trim();
+  if (clean.length < 2 || clean.length > 60) return null;
+  if (clean.split(/\s+/).length > 7 || /[.!?]$/.test(clean)) return null;
 
+  // Contact line indicators are never section headers
+  if (clean.includes('@') || clean.includes('http') || clean.includes('www.') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
+    return null;
+  }
+  if (/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(clean) && !/[a-zA-Z]{5,}/.test(clean)) {
+    return null;
+  }
+
+  // Candidate name matching
+  if (candidateName && (clean.toLowerCase() === candidateName.toLowerCase() || (candidateName.toLowerCase().includes(clean.toLowerCase()) && clean.length > 3))) {
+    return null;
+  }
+
+  // In the top 4 lines, if line does not contain an explicit section keyword, it is candidate header info
   const lower = clean.toLowerCase();
-  if (/^(summary|professional summary|executive summary|profile|professional profile|career summary|about me|objective|career objective)$/i.test(lower)) {
+  const hasStrongSectionTerm =
+    lower.includes('summary') ||
+    lower.includes('profile') ||
+    lower.includes('objective') ||
+    lower.includes('experience') ||
+    lower.includes('employment') ||
+    lower.includes('work history') ||
+    lower.includes('career') ||
+    lower.includes('skill') ||
+    lower.includes('competenc') ||
+    lower.includes('technolog') ||
+    lower.includes('education') ||
+    lower.includes('academic') ||
+    lower.includes('projects');
+
+  if (lineIndex <= 3 && !hasStrongSectionTerm) {
+    return null;
+  }
+
+  // Summary / Profile / Objective
+  if (
+    lower.includes('summary') ||
+    lower.includes('profile') ||
+    lower.includes('objective') ||
+    lower.includes('about me') ||
+    lower === 'about' ||
+    lower.includes('overview')
+  ) {
     return { type: 'summary', title: clean };
   }
-  if (/^(work experience|professional experience|experience|employment history|work history|career history|relevant experience)$/i.test(lower)) {
+
+  // Experience / Work / Employment
+  if (
+    lower.includes('experience') ||
+    lower.includes('employment') ||
+    lower.includes('work history') ||
+    lower.includes('career history') ||
+    lower.includes('work experience') ||
+    lower.includes('career') ||
+    lower === 'experience' ||
+    lower === 'work'
+  ) {
     return { type: 'experience', title: clean };
   }
-  if (/^(skills|technical skills|technologies|core competencies|skills & tools|technical proficiencies|areas of expertise|tech stack)$/i.test(lower)) {
+
+  // Skills / Technologies / Stack / Tools / Competencies / Core Qualifications
+  if (
+    lower.includes('skill') ||
+    lower.includes('technolog') ||
+    lower.includes('competenc') ||
+    lower.includes('proficienc') ||
+    lower.includes('tech stack') ||
+    lower.includes('tools') ||
+    lower.includes('expertise') ||
+    lower.includes('languages & framework') ||
+    lower.includes('languages and framework') ||
+    lower.includes('core qualifications') ||
+    lower.includes('qualifications')
+  ) {
     return { type: 'skills', title: clean };
   }
-  if (/^(projects|key projects|featured projects|personal projects|technical projects|academic projects)$/i.test(lower)) {
+
+  // Projects
+  if (lower.includes('project')) {
     return { type: 'projects', title: clean };
   }
-  if (/^(education|academic background|education & training|academic qualifications)$/i.test(lower)) {
+
+  // Education / Academic / Degrees
+  if (
+    lower.includes('education') ||
+    lower.includes('academic') ||
+    lower.includes('qualification') ||
+    lower.includes('degree') ||
+    lower.includes('university') ||
+    lower.includes('college')
+  ) {
     return { type: 'education', title: clean };
   }
-  if (/^(certifications|licenses & certifications|certificates|credentials)$/i.test(lower)) {
+
+  // Certifications / Licenses
+  if (
+    lower.includes('certif') ||
+    lower.includes('license') ||
+    lower.includes('credential')
+  ) {
     return { type: 'certifications', title: clean };
   }
-  if (/^(awards|honors|honors & awards|achievements)$/i.test(lower)) {
+
+  // Awards / Honors
+  if (
+    lower.includes('award') ||
+    lower.includes('honor') ||
+    lower.includes('achievement')
+  ) {
     return { type: 'awards', title: clean };
   }
-  if (/^(publications|patents|volunteer|volunteer experience|leadership|extracurricular)$/i.test(lower)) {
+
+  // Custom / Publications / Volunteer / Extracurricular / Leadership
+  if (
+    lower.includes('publication') ||
+    lower.includes('patent') ||
+    lower.includes('volunteer') ||
+    lower.includes('leadership') ||
+    lower.includes('extracurricular') ||
+    lower.includes('interest') ||
+    lower.includes('activity') ||
+    lower.includes('activities') ||
+    lower.includes('course') ||
+    lower.includes('affiliations')
+  ) {
     return { type: 'custom', title: clean };
   }
+
+  // Standalone all-caps line ONLY if it matches recognized section phrases
+  const recognizedCapsTerms = [
+    'BACKGROUND', 'HIGHLIGHTS', 'PROFESSIONAL HIGHLIGHTS', 'ACCOMPLISHMENTS',
+    'KEY ACHIEVEMENTS', 'CORE COMPETENCIES', 'AREAS OF EXPERTISE', 'TRAINING'
+  ];
+  if (recognizedCapsTerms.includes(clean.toUpperCase())) {
+    return { type: 'custom', title: clean };
+  }
+
   return null;
 }
 
 // Parses full document blueprint preserving exact section order, layout, and specialized items
-function parseDocumentBlueprint(resumeText: string): ParsedBlueprint {
+function parseDocumentBlueprint(resumeText: string, knownCandidateName?: string): ParsedBlueprint {
   if (!resumeText) {
     return {
       header_alignment: 'left',
@@ -405,10 +522,13 @@ function parseDocumentBlueprint(resumeText: string): ParsedBlueprint {
       date_alignment: 'right',
       bullet_character: '•',
       font_style: 'sans',
-      section_order: ['Summary', 'Experience', 'Skills'],
+      section_order: [],
       sections: [],
     };
   }
+
+  const { candidateName: detectedName } = extractCandidateInfoFromText(resumeText);
+  const candidateName = knownCandidateName || detectedName;
 
   const lines = resumeText.split('\n').map((l) => l.trim());
   const datePattern = /(20\d\d|19\d\d|present|current|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
@@ -433,7 +553,7 @@ function parseDocumentBlueprint(resumeText: string): ParsedBlueprint {
     const line = lines[i];
     if (!line) continue;
 
-    const classification = classifySectionHeader(line);
+    const classification = classifySectionHeader(line, i, candidateName);
     if (classification) {
       if (currentBlock) {
         detectedBlocks.push(currentBlock);
@@ -456,41 +576,45 @@ function parseDocumentBlueprint(resumeText: string): ParsedBlueprint {
     detectedBlocks.push(currentBlock);
   }
 
-  // If no sections were explicitly detected, construct default structure
-  if (detectedBlocks.length === 0) {
+  // Filter out any false block matching candidate name
+  const filteredBlocks = detectedBlocks.filter((b) => {
+    if (candidateName && b.title.toLowerCase() === candidateName.toLowerCase()) {
+      return false;
+    }
+    return true;
+  });
+
+  // If no sections were explicitly detected, preserve candidate's actual lines as experience
+  if (filteredBlocks.length === 0) {
     const exps = parseExperiencesFromResume(resumeText);
+    const contentLines = lines.filter((l) => l.length > 15);
     return {
       header_alignment: headerAlignment,
       has_divider_line: hasDivider,
       date_alignment: 'right',
       bullet_character: bulletChar,
       font_style: 'sans',
-      section_order: ['Summary', 'Professional Experience', 'Technical Skills'],
+      section_order: ['Experience'],
       sections: [
         {
-          id: 'summary',
-          title: 'Professional Summary',
-          type: 'summary',
-          content: lines.slice(2, 6).join(' '),
-        },
-        {
-          id: 'experience',
-          title: 'Professional Experience',
+          id: 'experience-0',
+          title: 'Experience',
           type: 'experience',
-          experiences: exps,
-        },
-        {
-          id: 'skills',
-          title: 'Technical Skills',
-          type: 'skills',
-          skills: ['TypeScript', 'Node.js', 'React', 'Docker', 'PostgreSQL', 'CI/CD'],
+          experiences: exps.length > 0 ? exps : [
+            {
+              company: 'Professional Background',
+              role: 'Software Engineer',
+              dates: 'Present',
+              bullet_points: contentLines.slice(0, 5),
+            },
+          ],
         },
       ],
     };
   }
 
   // Parse each detected block according to its specialized type
-  const sections: ParsedSection[] = detectedBlocks.map((block, idx) => {
+  const sections: ParsedSection[] = filteredBlocks.map((block, idx) => {
     const secId = `${block.type}-${idx}`;
 
     if (block.type === 'summary') {
@@ -504,18 +628,38 @@ function parseDocumentBlueprint(resumeText: string): ParsedBlueprint {
 
     if (block.type === 'skills') {
       const skills: string[] = [];
-      block.lines.forEach((l) => {
-        const cleaned = l.replace(/^[-•*▪o>]\s*/, '').replace(/^[A-Za-z\s]+:\s*/, '');
-        const tokens = cleaned.split(/[,|•·/]/).map((s) => s.trim()).filter((s) => s.length > 1 && s.length < 35);
+      const skillCategories: { category: string; items: string[] }[] = [];
+
+      for (const l of block.lines) {
+        const cleaned = l.replace(/^[-•*▪o>]\s*/, '').trim();
+        if (!cleaned) continue;
+
+        if (cleaned.includes(':')) {
+          const colonIdx = cleaned.indexOf(':');
+          const categoryName = cleaned.slice(0, colonIdx).trim();
+          const itemsStr = cleaned.slice(colonIdx + 1).trim();
+          const items = itemsStr.split(/[,|•·/]/).map((s) => s.trim()).filter((s) => s.length > 1 && s.length < 40);
+          if (categoryName && items.length > 0) {
+            skillCategories.push({ category: categoryName, items });
+            items.forEach((t) => {
+              if (!skills.includes(t)) skills.push(t);
+            });
+            continue;
+          }
+        }
+
+        const tokens = cleaned.split(/[,|•·/]/).map((s) => s.trim()).filter((s) => s.length > 1 && s.length < 40);
         tokens.forEach((t) => {
           if (!skills.includes(t)) skills.push(t);
         });
-      });
+      }
+
       return {
         id: secId,
         title: block.title,
         type: 'skills',
         skills: skills.length > 0 ? skills : ['TypeScript', 'React', 'Node.js', 'Docker', 'PostgreSQL'],
+        skill_categories: skillCategories.length > 0 ? skillCategories : undefined,
       };
     }
 
@@ -704,7 +848,7 @@ function tailorResumeFallback(
   }
 
   // Parse candidate's full document blueprint to replicate exact format
-  const blueprint = parseDocumentBlueprint(resumeText);
+  const blueprint = parseDocumentBlueprint(resumeText, candidateName);
 
   // Strong action words to upgrade bullets
   const powerVerbs = [
@@ -736,92 +880,118 @@ function tailorResumeFallback(
   let primarySummary: string = '';
 
   // Tailor each section in its exact original order!
-  const tailoredSections: ParsedSection[] = blueprint.sections.map((sec, secIdx) => {
-    if (sec.type === 'summary') {
-      const tailoredSummary = `Accomplished engineer with proven background building scalable software systems and high-reliability services. Demonstrates strong experience with ${matchedKeywords.slice(0, 3).join(', ')}, delivering measurable performance improvements and technical solutions aligned with target role requirements.`;
-      primarySummary = tailoredSummary;
-      return {
-        ...sec,
-        content: tailoredSummary,
-      };
-    }
+  const tailoredSections: ParsedSection[] = blueprint.sections
+    .filter((sec) => sec.title.toLowerCase() !== (candidateName || '').toLowerCase())
+    .map((sec) => {
+      if (sec.type === 'summary') {
+        let tailoredSummary = '';
+        if (sec.content && sec.content.length > 25) {
+          const topKw = matchedKeywords.slice(0, 3).join(', ');
+          const existing = sec.content.trim();
+          if (matchedKeywords.length > 0 && !existing.toLowerCase().includes(matchedKeywords[0].toLowerCase())) {
+            tailoredSummary = `${existing} Proven background leveraging ${topKw} to achieve measurable latency reduction, system scalability, and technical excellence.`;
+          } else {
+            tailoredSummary = existing;
+          }
+        } else {
+          tailoredSummary = `Accomplished engineer with proven background building scalable software systems and high-reliability services. Demonstrates strong experience with ${matchedKeywords.slice(0, 3).join(', ')}, delivering measurable performance improvements and technical solutions aligned with target role requirements.`;
+        }
+        primarySummary = tailoredSummary;
+        return {
+          ...sec,
+          content: tailoredSummary,
+        };
+      }
 
-    if (sec.type === 'skills') {
-      const combinedSkills = Array.from(
-        new Set([...(sec.skills || []), ...matchedKeywords])
-      );
-      primarySkills = combinedSkills;
-      return {
-        ...sec,
-        skills: combinedSkills,
-      };
-    }
+      if (sec.type === 'skills') {
+        const combinedSkills = Array.from(
+          new Set([...(sec.skills || []), ...matchedKeywords])
+        );
+        primarySkills = combinedSkills;
 
-    if (sec.type === 'experience') {
-      const exps = (sec.experiences && sec.experiences.length > 0)
-        ? sec.experiences
-        : parseExperiencesFromResume(resumeText);
+        let tailoredCategories = sec.skill_categories
+          ? sec.skill_categories.map((c) => ({ ...c, items: [...c.items] }))
+          : undefined;
 
-      const tailoredExps = exps.map((exp, expIdx) => {
-        const rewrittenBullets = exp.bullet_points.map((bullet, bIdx) => {
-          const kw = matchedKeywords[(expIdx + bIdx) % Math.max(1, matchedKeywords.length)];
-          return rewriteBullet(bullet, bIdx, kw);
-        });
-
-        if (expIdx === 0 && confirmedAdditions.length > 0) {
-          confirmedAdditions.forEach((addition) => {
-            const [kw, notes] = addition.split(':');
-            rewrittenBullets.push(`Applied ${kw.trim()} experience (${notes.trim()}) to support production service requirements.`);
-          });
+        if (tailoredCategories && tailoredCategories.length > 0 && matchedKeywords.length > 0) {
+          const targetCat = tailoredCategories.find(
+            (c) => /cloud|tools|devops|backend|languages|frameworks/i.test(c.category)
+          ) || tailoredCategories[0];
+          targetCat.items = Array.from(new Set([...targetCat.items, ...matchedKeywords.slice(0, 3)]));
         }
 
         return {
-          company: exp.company,
-          role: exp.role,
-          dates: exp.dates || '2022 – Present',
-          bullet_points: rewrittenBullets.length > 0 ? rewrittenBullets : [
-            `Engineered core services and backend pipelines aligned with ${matchedKeywords[0] || 'cloud'} requirements.`,
-            `Optimized performance, reducing latency across critical user flows.`,
-          ],
+          ...sec,
+          skills: combinedSkills,
+          skill_categories: tailoredCategories,
         };
-      });
+      }
 
-      primaryExperiences = tailoredExps;
-      return {
-        ...sec,
-        experiences: tailoredExps,
-      };
-    }
+      if (sec.type === 'experience') {
+        const exps = (sec.experiences && sec.experiences.length > 0)
+          ? sec.experiences
+          : parseExperiencesFromResume(resumeText);
 
-    if (sec.type === 'projects') {
-      const projs = sec.projects || [];
-      const tailoredProjs = projs.map((p, pIdx) => {
-        const kw = matchedKeywords[(pIdx + 2) % Math.max(1, matchedKeywords.length)];
-        const rewrittenBullets = p.bullet_points.map((b, bIdx) => rewriteBullet(b, bIdx, kw));
+        const tailoredExps = exps.map((exp, expIdx) => {
+          const rewrittenBullets = exp.bullet_points.map((bullet, bIdx) => {
+            const kw = matchedKeywords[(expIdx + bIdx) % Math.max(1, matchedKeywords.length)];
+            return rewriteBullet(bullet, bIdx, kw);
+          });
+
+          if (expIdx === 0 && confirmedAdditions.length > 0) {
+            confirmedAdditions.forEach((addition) => {
+              const [kw, notes] = addition.split(':');
+              rewrittenBullets.push(`Applied ${kw.trim()} experience (${notes.trim()}) to support production service requirements.`);
+            });
+          }
+
+          return {
+            company: exp.company,
+            role: exp.role,
+            dates: exp.dates || '2022 – Present',
+            bullet_points: rewrittenBullets.length > 0 ? rewrittenBullets : [
+              `Engineered core services and backend pipelines aligned with ${matchedKeywords[0] || 'cloud'} requirements.`,
+              `Optimized performance, reducing latency across critical user flows.`,
+            ],
+          };
+        });
+
+        primaryExperiences = tailoredExps;
         return {
-          title: p.title,
-          technologies: p.technologies ? `${p.technologies}, ${kw}` : kw,
-          dates: p.dates,
-          bullet_points: rewrittenBullets.length > 0 ? rewrittenBullets : [
-            `Engineered core project architecture utilizing ${kw || 'modern technologies'} with high uptime.`,
-          ],
+          ...sec,
+          experiences: tailoredExps,
         };
-      });
-      primaryProjects = tailoredProjs;
-      return {
-        ...sec,
-        projects: tailoredProjs,
-      };
-    }
+      }
 
-    if (sec.type === 'education') {
-      primaryEducation = sec.education || [];
+      if (sec.type === 'projects') {
+        const projs = sec.projects || [];
+        const tailoredProjs = projs.map((p, pIdx) => {
+          const kw = matchedKeywords[(pIdx + 2) % Math.max(1, matchedKeywords.length)];
+          const rewrittenBullets = p.bullet_points.map((b, bIdx) => rewriteBullet(b, bIdx, kw));
+          return {
+            title: p.title,
+            technologies: p.technologies ? `${p.technologies}, ${kw}` : kw,
+            dates: p.dates,
+            bullet_points: rewrittenBullets.length > 0 ? rewrittenBullets : [
+              `Engineered core project architecture utilizing ${kw || 'modern technologies'} with high uptime.`,
+            ],
+          };
+        });
+        primaryProjects = tailoredProjs;
+        return {
+          ...sec,
+          projects: tailoredProjs,
+        };
+      }
+
+      if (sec.type === 'education') {
+        primaryEducation = sec.education || [];
+        return sec;
+      }
+
+      // Custom, certifications, awards preserved 100%
       return sec;
-    }
-
-    // Custom, certifications, awards preserved 100%
-    return sec;
-  });
+    });
 
   // Ensure primary experiences exist even if no explicit experience section was named
   if (primaryExperiences.length === 0) {
@@ -847,6 +1017,27 @@ function tailorResumeFallback(
     primarySkills = Array.from(new Set([...matchedKeywords, ...analysis.base_skills_found, 'TypeScript', 'Docker', 'CI/CD', 'Git']));
   }
 
+  // Construct full_tailored_text preserving exact lines, spacing, and layout from original resume
+  const allRewrittenBullets: string[] = [];
+  primaryExperiences.forEach((exp) => {
+    exp.bullet_points.forEach((b) => allRewrittenBullets.push(b));
+  });
+
+  let bulletCount = 0;
+  const originalLines = resumeText.split('\n');
+  const tailoredLines = originalLines.map((line) => {
+    const isBullet = /^[-•*▪o>]\s*/.test(line.trim()) || /^\d+\.\s+/.test(line.trim());
+    if (isBullet && bulletCount < allRewrittenBullets.length) {
+      const match = line.match(/^(\s*[-•*▪o>]\s*|\s*\d+\.\s*)/);
+      const prefix = match ? match[0] : '• ';
+      const replaced = `${prefix}${allRewrittenBullets[bulletCount]}`;
+      bulletCount++;
+      return replaced;
+    }
+    return line;
+  });
+  const fullTailoredText = tailoredLines.join('\n');
+
   return {
     missing_keywords_and_questions: omittedGaps.map(
       (g) => `Excluded from resume: ${g} (Kept honest because you haven't used it yet).`
@@ -859,9 +1050,11 @@ function tailorResumeFallback(
       projects: primaryProjects.length > 0 ? primaryProjects : undefined,
       blueprint: {
         ...blueprint,
+        section_order: tailoredSections.map((s) => s.title),
         sections: tailoredSections,
       },
       sections: tailoredSections,
+      full_tailored_text: fullTailoredText,
     },
     match_insights: {
       ats_score_before: 58,
@@ -873,6 +1066,7 @@ function tailorResumeFallback(
     },
     blueprint: {
       ...blueprint,
+      section_order: tailoredSections.map((s) => s.title),
       sections: tailoredSections,
     },
     candidate_name: candidateName,
@@ -1157,7 +1351,7 @@ app.post('/api/tailor-resume', async (req: Request, res: Response): Promise<void
             .join('\n\n')
         : 'No skill questions answered.';
 
-      const detectedBlueprint = parseDocumentBlueprint(resumeText);
+      const detectedBlueprint = parseDocumentBlueprint(resumeText, candidateName);
 
       const promptText = `
 You are an expert technical resume coach.
@@ -1204,6 +1398,10 @@ ${answersText}
             responseSchema: {
               type: Type.OBJECT,
               properties: {
+                full_tailored_text: {
+                  type: Type.STRING,
+                  description: 'The COMPLETE tailored resume document text, preserving the EXACT format, layout, indentation, line breaks, and section headings from the uploaded resume, with bullet points and summary tailored in-place.',
+                },
                 missing_keywords_and_questions: {
                   type: Type.ARRAY,
                   items: { type: Type.STRING },
@@ -1274,8 +1472,10 @@ ${answersText}
       parsed.candidate_contact = candidateContact;
 
       // Ensure blueprint and sections are populated with exact original section order
-      const blueprint = parseDocumentBlueprint(resumeText);
-      const tailoredSections = blueprint.sections.map((sec) => {
+      const blueprint = parseDocumentBlueprint(resumeText, candidateName);
+      const tailoredSections = blueprint.sections
+        .filter((sec) => sec.title.toLowerCase() !== (candidateName || '').toLowerCase())
+        .map((sec) => {
         if (sec.type === 'summary' && parsed.tailored_resume?.summary) {
           return { ...sec, content: parsed.tailored_resume.summary };
         }
@@ -1290,6 +1490,7 @@ ${answersText}
 
       const fullBlueprint = {
         ...blueprint,
+        section_order: tailoredSections.map((s) => s.title),
         sections: tailoredSections,
       };
 
@@ -1297,6 +1498,30 @@ ${answersText}
       if (parsed.tailored_resume) {
         parsed.tailored_resume.blueprint = fullBlueprint;
         parsed.tailored_resume.sections = tailoredSections;
+
+        if (parsed.full_tailored_text) {
+          parsed.tailored_resume.full_tailored_text = parsed.full_tailored_text;
+        } else {
+          // Construct full_tailored_text from original resume lines and rewritten bullets
+          const allRewrittenBullets: string[] = [];
+          (parsed.tailored_resume.experiences || []).forEach((exp: any) => {
+            exp.bullet_points.forEach((b: string) => allRewrittenBullets.push(b));
+          });
+          let bulletCount = 0;
+          const originalLines = resumeText.split('\n');
+          const tailoredLines = originalLines.map((line: string) => {
+            const isBullet = /^[-•*▪o>]\s*/.test(line.trim()) || /^\d+\.\s+/.test(line.trim());
+            if (isBullet && bulletCount < allRewrittenBullets.length) {
+              const match = line.match(/^(\s*[-•*▪o>]\s*|\s*\d+\.\s*)/);
+              const prefix = match ? match[0] : '• ';
+              const replaced = `${prefix}${allRewrittenBullets[bulletCount]}`;
+              bulletCount++;
+              return replaced;
+            }
+            return line;
+          });
+          parsed.tailored_resume.full_tailored_text = tailoredLines.join('\n');
+        }
       }
 
       res.json(parsed);
