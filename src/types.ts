@@ -5,10 +5,68 @@ export interface ExperienceItem {
   bullet_points: string[];
 }
 
+export interface EducationItem {
+  institution: string;
+  degree: string;
+  dates: string;
+  details?: string[];
+}
+
+export interface ProjectItem {
+  title: string;
+  technologies?: string;
+  dates?: string;
+  bullet_points: string[];
+}
+
+export interface CustomSectionItem {
+  heading: string;
+  subheading?: string;
+  dates?: string;
+  bullet_points?: string[];
+  content?: string;
+}
+
+export type SectionType =
+  | 'summary'
+  | 'experience'
+  | 'skills'
+  | 'education'
+  | 'projects'
+  | 'certifications'
+  | 'awards'
+  | 'custom';
+
+export interface DocumentSection {
+  id: string;
+  title: string;
+  type: SectionType;
+  content?: string;
+  experiences?: ExperienceItem[];
+  education?: EducationItem[];
+  projects?: ProjectItem[];
+  skills?: string[];
+  items?: CustomSectionItem[];
+}
+
+export interface DocumentBlueprint {
+  header_alignment: 'center' | 'left';
+  has_divider_line: boolean;
+  date_alignment: 'right' | 'inline';
+  bullet_character: string;
+  font_style: 'sans' | 'serif' | 'mono';
+  section_order: string[];
+  sections: DocumentSection[];
+}
+
 export interface TailoredResume {
   summary: string;
   experiences: ExperienceItem[];
   skills: string[];
+  education?: EducationItem[];
+  projects?: ProjectItem[];
+  blueprint?: DocumentBlueprint;
+  sections?: DocumentSection[];
 }
 
 export interface MatchInsights {
@@ -26,25 +84,7 @@ export interface ResumeEngineResponse {
   match_insights?: MatchInsights;
   candidate_name?: string;
   candidate_contact?: string;
-}
-
-export interface GapAnalysisResponse {
-  missing_keywords_and_questions: string[];
-  identified_jd_keywords?: string[];
-  candidate_name?: string;
-  candidate_contact?: string;
-  current_title?: string;
-  extracted_resume_text?: string;
-  base_skills_found?: string[];
-}
-
-export type GapStatus = 'pending' | 'confirmed' | 'unfamiliar' | 'studying';
-
-export interface GapItem {
-  id: string;
-  question: string;
-  status: GapStatus;
-  contextNotes: string;
+  blueprint?: DocumentBlueprint;
 }
 
 export interface PresetScenario {

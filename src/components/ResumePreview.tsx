@@ -11,7 +11,8 @@ import {
   Trash2,
   Copy,
   Maximize2,
-  Eye,
+  Columns,
+  Sparkles,
 } from 'lucide-react';
 import {
   exportToPlainText,
@@ -19,32 +20,54 @@ import {
   triggerPrint,
   copyToClipboard,
 } from '../utils/exportUtils';
+import { DocumentViewer } from './DocumentViewer';
 
 interface ResumePreviewProps {
   resume: TailoredResume;
   rawResponse?: ResumeEngineResponse;
   candidateName: string;
   candidateContact: string;
+  pdfBase64?: string | null;
+  fileName?: string | null;
+  originalResumeText?: string;
   onUpdateResume: (updated: TailoredResume) => void;
   onOpenJsonModal: () => void;
 }
 
 export function ResumePreview({
   resume,
-  rawResponse,
+  rawResponse: _rawResponse,
   candidateName,
   candidateContact,
+  pdfBase64,
+  fileName,
+  originalResumeText,
   onUpdateResume,
   onOpenJsonModal,
 }: ResumePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<'standard' | 'focused'>('standard');
+  const [viewMode, setViewMode] = useState<'standard' | 'side-by-side' | 'focused'>('standard');
 
-  const handleSummaryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const blueprint = resume.blueprint;
+  const sections = blueprint?.sections || resume.sections;
+
+  // Header styling based on blueprint
+  const headerAlignment = blueprint?.header_alignment === 'left' ? 'text-left' : 'text-center';
+  const fontClass =
+    blueprint?.font_style === 'serif'
+      ? 'font-serif'
+      : blueprint?.font_style === 'mono'
+      ? 'font-mono'
+      : 'font-sans';
+
+  const handleSummaryChange = (val: string) => {
+    const updatedSections = sections?.map((s) => (s.type === 'summary' ? { ...s, content: val } : s));
     onUpdateResume({
       ...resume,
-      summary: e.target.value,
+      summary: val,
+      sections: updatedSections,
+      blueprint: blueprint ? { ...blueprint, sections: updatedSections || [] } : undefined,
     });
   };
 
@@ -53,7 +76,17 @@ export function ResumePreview({
     const newBullets = [...newExps[expIdx].bullet_points];
     newBullets[bIdx] = val;
     newExps[expIdx] = { ...newExps[expIdx], bullet_points: newBullets };
-    onUpdateResume({ ...resume, experiences: newExps });
+
+    const updatedSections = sections?.map((s) =>
+      s.type === 'experience' ? { ...s, experiences: newExps } : s
+    );
+
+    onUpdateResume({
+      ...resume,
+      experiences: newExps,
+      sections: updatedSections,
+      blueprint: blueprint ? { ...blueprint, sections: updatedSections || [] } : undefined,
+    });
   };
 
   const handleAddBullet = (expIdx: number) => {
@@ -63,47 +96,365 @@ export function ResumePreview({
       'Architected high-impact workflow delivering measurable latency reduction and system reliability...',
     ];
     newExps[expIdx] = { ...newExps[expIdx], bullet_points: newBullets };
-    onUpdateResume({ ...resume, experiences: newExps });
+
+    const updatedSections = sections?.map((s) =>
+      s.type === 'experience' ? { ...s, experiences: newExps } : s
+    );
+
+    onUpdateResume({
+      ...resume,
+      experiences: newExps,
+      sections: updatedSections,
+      blueprint: blueprint ? { ...blueprint, sections: updatedSections || [] } : undefined,
+    });
   };
 
   const handleDeleteBullet = (expIdx: number, bIdx: number) => {
     const newExps = [...resume.experiences];
     const newBullets = newExps[expIdx].bullet_points.filter((_, i) => i !== bIdx);
     newExps[expIdx] = { ...newExps[expIdx], bullet_points: newBullets };
-    onUpdateResume({ ...resume, experiences: newExps });
+
+    const updatedSections = sections?.map((s) =>
+      s.type === 'experience' ? { ...s, experiences: newExps } : s
+    );
+
+    onUpdateResume({
+      ...resume,
+      experiences: newExps,
+      sections: updatedSections,
+      blueprint: blueprint ? { ...blueprint, sections: updatedSections || [] } : undefined,
+    });
   };
 
-  const handleSkillsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const skillsArray = e.target.value
+  const handleSkillsChange = (val: string) => {
+    const skillsArray = val
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    onUpdateResume({ ...resume, skills: skillsArray });
+
+    const updatedSections = sections?.map((s) =>
+      s.type === 'skills' ? { ...s, skills: skillsArray } : s
+    );
+
+    onUpdateResume({
+      ...resume,
+      skills: skillsArray,
+      sections: updatedSections,
+      blueprint: blueprint ? { ...blueprint, sections: updatedSections || [] } : undefined,
+    });
   };
 
   const handleCopyText = async () => {
-    const text =
-      `${candidateName.toUpperCase()}\n${candidateContact}\n\nSUMMARY:\n${resume.summary}\n\nEXPERIENCE:\n` +
-      resume.experiences
-        .map(
-          (e) =>
-            `${e.company} | ${e.role} (${e.dates})\n` +
-            e.bullet_points.map((b) => `• ${b}`).join('\n')
-        )
-        .join('\n\n') +
-      `\n\nSKILLS:\n${resume.skills.join(', ')}`;
-    const ok = await copyToClipboard(text);
+    const lines: string[] = [];
+    lines.push(candidateName.toUpperCase());
+    if (candidateContact) lines.push(candidateContact);
+    lines.push('');
+
+    if (sections && sections.length > 0) {
+      sections.forEach((sec) => {
+        lines.push(`\n=== ${sec.title.toUpperCase()} ===`);
+        if (sec.type === 'summary') lines.push(sec.content || resume.summary);
+        else if (sec.type === 'skills') lines.push((sec.skills || resume.skills).join(' · '));
+        else if (sec.type === 'experience') {
+          (sec.experiences || resume.experiences).forEach((e) => {
+            lines.push(`${e.company} | ${e.role} (${e.dates})`);
+            e.bullet_points.forEach((b) => lines.push(`• ${b}`));
+          });
+        } else if (sec.type === 'projects') {
+          (sec.projects || resume.projects || []).forEach((p) => {
+            lines.push(`${p.title} (${p.technologies || ''})`);
+            p.bullet_points.forEach((b) => lines.push(`• ${b}`));
+          });
+        } else if (sec.type === 'education') {
+          (sec.education || resume.education || []).forEach((ed) => {
+            lines.push(`${ed.institution} | ${ed.degree} (${ed.dates})`);
+          });
+        }
+      });
+    } else {
+      lines.push('=== SUMMARY ===\n' + resume.summary);
+      lines.push('\n=== EXPERIENCE ===');
+      resume.experiences.forEach((e) => {
+        lines.push(`${e.company} | ${e.role} (${e.dates})`);
+        e.bullet_points.forEach((b) => lines.push(`• ${b}`));
+      });
+      lines.push('\n=== SKILLS ===\n' + resume.skills.join(' · '));
+    }
+
+    const ok = await copyToClipboard(lines.join('\n'));
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
+  // Render a specific section adhering to original format
+  const renderSection = (sec: any, secIdx: number) => {
+    const headingText = sec.title || 'SECTION';
+
+    if (sec.type === 'summary') {
+      const summaryText = sec.content || resume.summary;
+      return (
+        <div key={sec.id || secIdx} className="mb-6">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-2.5">
+            {headingText}
+          </div>
+          {isEditing ? (
+            <textarea
+              value={summaryText}
+              onChange={(e) => handleSummaryChange(e.target.value)}
+              rows={4}
+              className="w-full text-xs sm:text-sm font-sans p-3 bg-slate-50 border border-indigo-400 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-900 leading-relaxed"
+            />
+          ) : (
+            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-sans text-justify">
+              {summaryText}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    if (sec.type === 'skills') {
+      const skillsList = sec.skills || resume.skills;
+      return (
+        <div key={sec.id || secIdx} className="mb-6">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-2.5">
+            {headingText}
+          </div>
+          {isEditing ? (
+            <div className="space-y-1">
+              <input
+                type="text"
+                value={skillsList.join(', ')}
+                onChange={(e) => handleSkillsChange(e.target.value)}
+                className="w-full text-xs font-sans p-2.5 bg-slate-50 border border-indigo-300 rounded-lg text-slate-900"
+                placeholder="Comma separated skills..."
+              />
+              <span className="text-[11px] text-slate-500">Separate skills with commas</span>
+            </div>
+          ) : (
+            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
+              {skillsList.map((skill: string, idx: number) => (
+                <span key={idx}>
+                  <strong className="font-semibold text-slate-950">{skill}</strong>
+                  {idx < skillsList.length - 1 && (
+                    <span className="text-slate-400 mx-2">·</span>
+                  )}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    if (sec.type === 'experience') {
+      const exps = sec.experiences || resume.experiences;
+      return (
+        <div key={sec.id || secIdx} className="mb-6">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-3">
+            {headingText}
+          </div>
+
+          <div className="space-y-5">
+            {exps.map((exp: any, expIdx: number) => (
+              <div key={expIdx} className="space-y-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between text-xs sm:text-sm">
+                  <div className="font-bold text-slate-950">
+                    {exp.company}{' '}
+                    <span className="font-normal text-slate-600 italic">
+                      — {exp.role}
+                    </span>
+                  </div>
+                  <div className="text-xs font-mono text-slate-500 shrink-0">
+                    {exp.dates}
+                  </div>
+                </div>
+
+                <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
+                  {exp.bullet_points.map((bullet: string, bIdx: number) => (
+                    <li key={bIdx} className="group">
+                      {isEditing ? (
+                        <div className="flex items-start gap-2 my-1">
+                          <textarea
+                            value={bullet}
+                            onChange={(e) => handleBulletChange(expIdx, bIdx, e.target.value)}
+                            rows={2}
+                            className="flex-1 text-xs font-sans p-2 bg-slate-50 border border-indigo-300 rounded text-slate-900"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBullet(expIdx, bIdx)}
+                            className="text-red-500 hover:text-red-700 p-1 mt-1"
+                            title="Delete bullet"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span>{bullet}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => handleAddBullet(expIdx)}
+                    className="text-[11px] text-indigo-600 font-semibold hover:text-indigo-800 flex items-center gap-1 mt-2"
+                  >
+                    <Plus className="w-3 h-3" /> Add Bullet Point
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (sec.type === 'projects') {
+      const projs = sec.projects || resume.projects || [];
+      return (
+        <div key={sec.id || secIdx} className="mb-6">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-3">
+            {headingText}
+          </div>
+          <div className="space-y-4">
+            {projs.map((p: any, pIdx: number) => (
+              <div key={pIdx} className="space-y-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between text-xs sm:text-sm">
+                  <div className="font-bold text-slate-950">
+                    {p.title}{' '}
+                    {p.technologies && (
+                      <span className="font-normal text-slate-600 text-xs italic">
+                        ({p.technologies})
+                      </span>
+                    )}
+                  </div>
+                  {p.dates && (
+                    <div className="text-xs font-mono text-slate-500 shrink-0">
+                      {p.dates}
+                    </div>
+                  )}
+                </div>
+                {p.bullet_points && p.bullet_points.length > 0 && (
+                  <ul className="list-disc pl-5 space-y-1 text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
+                    {p.bullet_points.map((b: string, bIdx: number) => (
+                      <li key={bIdx}>{b}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (sec.type === 'education') {
+      const edus = sec.education || resume.education || [];
+      return (
+        <div key={sec.id || secIdx} className="mb-6">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-3">
+            {headingText}
+          </div>
+          <div className="space-y-3">
+            {edus.map((edu: any, eIdx: number) => (
+              <div key={eIdx} className="text-xs sm:text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between">
+                  <div className="font-bold text-slate-950">{edu.institution}</div>
+                  {edu.dates && (
+                    <div className="text-xs font-mono text-slate-500 shrink-0">
+                      {edu.dates}
+                    </div>
+                  )}
+                </div>
+                <div className="text-slate-700 italic">{edu.degree}</div>
+                {edu.details && edu.details.length > 0 && (
+                  <ul className="list-disc pl-5 mt-1 space-y-0.5 text-xs text-slate-600">
+                    {edu.details.map((d: string, dIdx: number) => (
+                      <li key={dIdx}>{d}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Default for certifications, awards, or custom sections
+    const items = sec.items || [];
+    return (
+      <div key={sec.id || secIdx} className="mb-6">
+        <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-2.5">
+          {headingText}
+        </div>
+        {items.length > 0 ? (
+          <div className="space-y-2">
+            {items.map((item: any, itIdx: number) => (
+              <div key={itIdx} className="text-xs sm:text-sm">
+                <div className="flex justify-between font-semibold text-slate-950">
+                  <span>{item.heading}</span>
+                  {item.dates && <span className="font-mono text-slate-500">{item.dates}</span>}
+                </div>
+                {item.content && <p className="text-slate-700 mt-0.5">{item.content}</p>}
+                {item.bullet_points && item.bullet_points.length > 0 && (
+                  <ul className="list-disc pl-5 mt-1 space-y-0.5 text-xs text-slate-700">
+                    {item.bullet_points.map((b: string, bIdx: number) => (
+                      <li key={bIdx}>{b}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs sm:text-sm text-slate-800 leading-relaxed">{sec.content}</p>
+        )}
+      </div>
+    );
+  };
+
+  const PaperSheet = (
+    <div className={`print-resume-sheet bg-white text-slate-900 rounded-xl shadow-2xl p-8 sm:p-14 max-w-4xl w-full border border-slate-200/90 transition-all ${fontClass}`}>
+      {/* Candidate Document Header */}
+      <div
+        className={`border-b border-slate-300 pb-5 mb-6 ${headerAlignment}`}
+      >
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 uppercase">
+          {candidateName || 'Candidate Name'}
+        </h1>
+        {candidateContact && (
+          <div className="text-xs text-slate-600 mt-2 tracking-wide font-sans leading-relaxed">
+            {candidateContact}
+          </div>
+        )}
+      </div>
+
+      {/* Dynamic Sections rendered in exact sequence */}
+      {sections && sections.length > 0 ? (
+        sections.map((sec, idx) => renderSection(sec, idx))
+      ) : (
+        <>
+          {/* Default fallback sequence */}
+          {renderSection({ type: 'summary', title: 'Professional Summary' }, 0)}
+          {renderSection({ type: 'experience', title: 'Professional Experience' }, 1)}
+          {renderSection({ type: 'skills', title: 'Technical Skills & Competencies' }, 2)}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* 2026 Floating Action Toolbar */}
       <div className="no-print bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             type="button"
             onClick={() => setIsEditing(!isEditing)}
@@ -117,19 +468,35 @@ export function ResumePreview({
             <span>{isEditing ? 'Save Changes' : 'Edit Content'}</span>
           </button>
 
+          {/* Side-by-Side Comparison Toggle */}
           <button
             type="button"
-            onClick={() => setViewMode(viewMode === 'standard' ? 'focused' : 'standard')}
+            onClick={() => setViewMode(viewMode === 'side-by-side' ? 'standard' : 'side-by-side')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors flex items-center gap-1.5 ${
+              viewMode === 'side-by-side'
+                ? 'bg-indigo-950/80 text-indigo-300 border-indigo-700/80 shadow-xs'
+                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border-zinc-800'
+            }`}
+            title="Compare uploaded resume image side-by-side with tailored resume"
+          >
+            <Columns className="w-3.5 h-3.5" />
+            <span>Side-by-Side View</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode(viewMode === 'focused' ? 'standard' : 'focused')}
             className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 bg-zinc-950 rounded-lg border border-zinc-800 hidden sm:flex items-center gap-1.5 font-mono"
             title="Toggle Focused View"
           >
             <Maximize2 className="w-3 h-3" />
-            <span>{viewMode === 'standard' ? 'Focus View' : 'Standard View'}</span>
+            <span>{viewMode === 'focused' ? 'Standard' : 'Focus'}</span>
           </button>
 
-          <span className="text-xs text-zinc-600">/</span>
-          <span className="text-xs text-zinc-400 font-mono hidden md:inline">
-            Clean Format Matching Your Input Resume
+          <span className="text-xs text-zinc-600 hidden md:inline">/</span>
+          <span className="text-xs text-emerald-400 font-mono hidden lg:flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />
+            Exact Section Sequence & Header Mirroring
           </span>
         </div>
 
@@ -187,136 +554,47 @@ export function ResumePreview({
         </div>
       </div>
 
-      {/* 2026 Studio Desk Drafting Canvas */}
-      <div className={`desk-canvas rounded-2xl p-6 sm:p-12 border border-zinc-800 flex justify-center transition-all ${
-        viewMode === 'focused' ? 'p-1 sm:p-4' : ''
-      }`}>
-        {/* Paper Document Canvas */}
-        <div className="print-resume-sheet bg-white text-slate-900 rounded-xl shadow-2xl p-8 sm:p-14 max-w-4xl w-full border border-slate-200/90 transition-all font-sans">
-          {/* Candidate Document Header */}
-          <div className="border-b border-slate-300 pb-5 mb-6 text-center">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-950 uppercase">
-              {candidateName || 'Candidate Name'}
-            </h1>
-            {candidateContact && (
-              <div className="text-xs text-slate-600 mt-2 tracking-wide font-sans leading-relaxed">
-                {candidateContact}
-              </div>
-            )}
-          </div>
-
-          {/* Section: Professional Summary */}
-          <div className="mb-6">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-2.5">
-              Professional Summary
+      {/* Render Canvas: Side-by-Side Mode vs Standard Desk View */}
+      {viewMode === 'side-by-side' ? (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Left: Original Uploaded Document Preview */}
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono text-zinc-400 px-1">
+              <span className="font-bold text-zinc-200">Original Document Preview</span>
+              <span className="text-zinc-500">Source Layout</span>
             </div>
-            {isEditing ? (
-              <textarea
-                value={resume.summary}
-                onChange={handleSummaryChange}
-                rows={4}
-                className="w-full text-xs sm:text-sm font-sans p-3 bg-slate-50 border border-indigo-400 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-900"
+            <div className="h-[750px] overflow-hidden rounded-2xl">
+              <DocumentViewer
+                pdfBase64={pdfBase64 || null}
+                fileName={fileName || 'Original Resume'}
+                resumeText={originalResumeText || ''}
+                candidateName={candidateName}
+                candidateContact={candidateContact}
+                blueprint={blueprint}
               />
-            ) : (
-              <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-sans text-justify">
-                {resume.summary}
-              </p>
-            )}
-          </div>
-
-          {/* Section: Experience */}
-          <div className="mb-6">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-3">
-              Professional Experience
-            </div>
-
-            <div className="space-y-5">
-              {resume.experiences.map((exp, expIdx) => (
-                <div key={expIdx} className="space-y-1.5">
-                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between text-xs sm:text-sm">
-                    <div className="font-bold text-slate-950">
-                      {exp.company}{' '}
-                      <span className="font-normal text-slate-600 italic">
-                        — {exp.role}
-                      </span>
-                    </div>
-                    <div className="text-xs font-mono text-slate-500 shrink-0">
-                      {exp.dates}
-                    </div>
-                  </div>
-
-                  <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
-                    {exp.bullet_points.map((bullet, bIdx) => (
-                      <li key={bIdx} className="group">
-                        {isEditing ? (
-                          <div className="flex items-start gap-2 my-1">
-                            <textarea
-                              value={bullet}
-                              onChange={(e) => handleBulletChange(expIdx, bIdx, e.target.value)}
-                              rows={2}
-                              className="flex-1 text-xs font-sans p-2 bg-slate-50 border border-indigo-300 rounded text-slate-900"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteBullet(expIdx, bIdx)}
-                              className="text-red-500 hover:text-red-700 p-1 mt-1"
-                              title="Delete bullet"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <span>{bullet}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {isEditing && (
-                    <button
-                      type="button"
-                      onClick={() => handleAddBullet(expIdx)}
-                      className="text-[11px] text-indigo-600 font-semibold hover:text-indigo-800 flex items-center gap-1 mt-2"
-                    >
-                      <Plus className="w-3 h-3" /> Add Bullet Point
-                    </button>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
 
-          {/* Section: Technical Skills */}
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-950 border-b border-slate-300 pb-1 mb-2.5">
-              Technical Skills & Competencies
+          {/* Right: Tailored Resume Document */}
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono text-zinc-400 px-1">
+              <span className="font-bold text-indigo-300">Tailored Resume (Exact Mirror)</span>
+              <span className="text-emerald-400">ATS Optimized</span>
             </div>
-            {isEditing ? (
-              <div className="space-y-1">
-                <input
-                  type="text"
-                  value={resume.skills.join(', ')}
-                  onChange={handleSkillsChange}
-                  className="w-full text-xs font-sans p-2.5 bg-slate-50 border border-indigo-300 rounded-lg text-slate-900"
-                  placeholder="Comma separated skills..."
-                />
-                <span className="text-[11px] text-slate-500">Separate skills with commas</span>
-              </div>
-            ) : (
-              <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
-                {resume.skills.map((skill, idx) => (
-                  <span key={idx}>
-                    <strong className="font-semibold text-slate-950">{skill}</strong>
-                    {idx < resume.skills.length - 1 && (
-                      <span className="text-slate-400 mx-2">·</span>
-                    )}
-                  </span>
-                ))}
-              </p>
-            )}
+            <div className="h-[750px] overflow-auto desk-canvas rounded-2xl p-4 sm:p-6 border border-zinc-800 flex justify-center">
+              {PaperSheet}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div
+          className={`desk-canvas rounded-2xl p-6 sm:p-12 border border-zinc-800 flex justify-center transition-all ${
+            viewMode === 'focused' ? 'p-1 sm:p-4' : ''
+          }`}
+        >
+          {PaperSheet}
+        </div>
+      )}
     </div>
   );
 }

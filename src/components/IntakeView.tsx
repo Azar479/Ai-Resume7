@@ -12,7 +12,10 @@ import {
   Layers,
   ArrowRight,
   ShieldCheck,
+  Eye,
+  Code2,
 } from 'lucide-react';
+import { DocumentViewer } from './DocumentViewer';
 
 interface IntakeViewProps {
   resumeText: string;
@@ -27,7 +30,7 @@ interface IntakeViewProps {
   setCandidateName: (name: string) => void;
   candidateContact: string;
   setCandidateContact: (contact: string) => void;
-  onRunGapAnalysis: () => void;
+  onTailorResume: () => void;
   isLoading: boolean;
   onSelectPreset: (preset: PresetScenario) => void;
   isSampleData?: boolean;
@@ -48,14 +51,15 @@ export function IntakeView({
   setCandidateName,
   candidateContact,
   setCandidateContact,
-  onRunGapAnalysis,
+  onTailorResume,
   isLoading,
   onSelectPreset,
   isSampleData = false,
   onClearSampleData,
   onFileExtracted,
 }: IntakeViewProps) {
-  const [activeResumeTab, setActiveResumeTab] = useState<'text' | 'file'>('text');
+  // If resume is loaded or uploaded, show 'document' image view by default
+  const [activeResumeTab, setActiveResumeTab] = useState<'document' | 'text' | 'upload'>('document');
   const [dragOver, setDragOver] = useState(false);
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [extractStatusMsg, setExtractStatusMsg] = useState<string | null>(null);
@@ -99,15 +103,17 @@ export function IntakeView({
               }
               setExtractStatusMsg(`Loaded ${data.candidateName || file.name}`);
               onFileExtracted?.();
-              setActiveResumeTab('text');
+              setActiveResumeTab('document');
             } else {
               setResumeText(`[PDF Document: ${file.name} uploaded]`);
               onFileExtracted?.();
+              setActiveResumeTab('document');
             }
           } catch (err) {
             console.error('Error extracting PDF:', err);
             setResumeText(`[PDF Document: ${file.name} uploaded]`);
             onFileExtracted?.();
+            setActiveResumeTab('document');
           } finally {
             setIsExtractingPdf(false);
           }
@@ -122,12 +128,12 @@ export function IntakeView({
           setResumePdfBase64(null);
 
           // Extract candidate name from first non-empty line
-          const firstLine = text.split('\n').map(l => l.trim()).filter(Boolean)[0];
+          const firstLine = text.split('\n').map((l) => l.trim()).filter(Boolean)[0];
           if (firstLine && firstLine.length < 50 && !firstLine.includes(':')) {
             setCandidateName(firstLine);
           }
           onFileExtracted?.();
-          setActiveResumeTab('text');
+          setActiveResumeTab('document');
           setIsExtractingPdf(false);
           setExtractStatusMsg(`Loaded ${file.name}`);
         };
@@ -160,7 +166,10 @@ export function IntakeView({
     if (resumeText.startsWith('[PDF Document:')) {
       setResumeText('');
     }
+    setActiveResumeTab('upload');
   };
+
+  const hasResumeLoaded = !!(resumeText || resumePdfBase64);
 
   return (
     <div className="space-y-6">
@@ -186,7 +195,7 @@ export function IntakeView({
               </button>
             )}
             <span className="text-[11px] text-zinc-500 font-mono hidden md:inline">
-              Pick a sample or paste your own resume below
+              Pick a sample or upload your own resume below
             </span>
           </div>
         </div>
@@ -196,7 +205,10 @@ export function IntakeView({
             <button
               key={preset.id}
               type="button"
-              onClick={() => onSelectPreset(preset)}
+              onClick={() => {
+                onSelectPreset(preset);
+                setActiveResumeTab('document');
+              }}
               className="text-left p-3.5 rounded-xl border border-zinc-800 hover:border-indigo-500/60 bg-zinc-950/60 hover:bg-zinc-900/90 transition-all group flex flex-col justify-between"
             >
               <div>
@@ -252,41 +264,115 @@ export function IntakeView({
       {/* Main Split: Resume vs Job Description */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Panel: Base Resume */}
-        <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 shadow-xl backdrop-blur-md flex flex-col">
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 shadow-xl backdrop-blur-md flex flex-col min-h-[560px]">
           <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-3">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-400" />
-              <h3 className="text-sm font-bold text-white">Your Current Resume</h3>
+              <h3 className="text-sm font-bold text-white">Your Uploaded Resume</h3>
             </div>
 
             {/* Segmented Control */}
             <div className="flex items-center gap-1 p-1 bg-zinc-950 rounded-xl border border-zinc-800">
               <button
                 type="button"
+                onClick={() => setActiveResumeTab('document')}
+                className={`px-3 py-1 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
+                  activeResumeTab === 'document'
+                    ? 'bg-zinc-800 text-white shadow-xs'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+                title="View document image / rendered canvas"
+              >
+                <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Document Image</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveResumeTab('text')}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                className={`px-3 py-1 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
                   activeResumeTab === 'text'
                     ? 'bg-zinc-800 text-white shadow-xs'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
+                title="View or edit extracted raw text"
               >
-                Text
+                <Code2 className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Raw Text</span>
               </button>
+
               <button
                 type="button"
-                onClick={() => setActiveResumeTab('file')}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                  activeResumeTab === 'file'
+                onClick={() => setActiveResumeTab('upload')}
+                className={`px-3 py-1 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
+                  activeResumeTab === 'upload'
                     ? 'bg-zinc-800 text-white shadow-xs'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
+                title="Upload different resume file"
               >
-                Upload PDF
+                <UploadCloud className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Upload</span>
               </button>
             </div>
           </div>
 
-          {activeResumeTab === 'file' && (
+          {/* Tab 1: Rendered Document Image View */}
+          {activeResumeTab === 'document' && (
+            <div className="flex-1 flex flex-col">
+              {hasResumeLoaded ? (
+                <div className="flex-1 min-h-[460px]">
+                  <DocumentViewer
+                    pdfBase64={resumePdfBase64}
+                    fileName={pdfFileName}
+                    resumeText={resumeText}
+                    candidateName={candidateName}
+                    candidateContact={candidateContact}
+                    onClearDocument={clearFile}
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 border-2 border-dashed border-zinc-800 rounded-xl bg-zinc-950/40 text-center space-y-3">
+                  <UploadCloud className="w-10 h-10 text-zinc-500" />
+                  <div className="text-xs font-semibold text-zinc-300">
+                    No resume uploaded yet
+                  </div>
+                  <p className="text-[11px] text-zinc-500 font-mono max-w-sm">
+                    Upload your PDF or select a sample preset to preview the rendered document image.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveResumeTab('upload')}
+                    className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl hover:bg-indigo-500 transition-colors"
+                  >
+                    Upload Resume PDF
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 2: Raw Text View */}
+          {activeResumeTab === 'text' && (
+            <div className="space-y-2 flex-1 flex flex-col">
+              <textarea
+                value={resumeText}
+                onChange={(e) => setResumeText(e.target.value)}
+                placeholder="Paste your current resume here with your work experience, dates, and bullet points..."
+                rows={16}
+                className="w-full flex-1 text-xs font-mono p-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-zinc-200 leading-relaxed placeholder:text-zinc-600 resize-y min-h-[360px]"
+              />
+              <div className="flex items-center justify-between text-[11px] text-zinc-500 font-mono">
+                <span>{resumeText.length.toLocaleString()} characters</span>
+                {pdfFileName && (
+                  <span className="text-indigo-400">Attached: {pdfFileName}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: Upload Dropzone */}
+          {activeResumeTab === 'upload' && (
             <div className="space-y-4 flex-1 flex flex-col">
               <div
                 onDragOver={(e) => {
@@ -295,7 +381,7 @@ export function IntakeView({
                 }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-8 text-center flex flex-col items-center justify-center flex-1 transition-all ${
+                className={`border-2 border-dashed rounded-xl p-8 text-center flex flex-col items-center justify-center flex-1 transition-all min-h-[360px] ${
                   dragOver
                     ? 'border-indigo-500 bg-indigo-950/20'
                     : 'border-zinc-800 bg-zinc-950/40 hover:bg-zinc-950/70'
@@ -305,10 +391,10 @@ export function IntakeView({
                   <div className="flex flex-col items-center py-4">
                     <div className="w-8 h-8 border-3 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-3" />
                     <div className="text-xs font-semibold text-zinc-200">
-                      Reading PDF & Extracting Experience...
+                      Reading PDF & Rendering Document Preview...
                     </div>
                     <div className="text-[11px] text-zinc-400 font-mono mt-1">
-                      Extracting your real companies, dates, and bullet points
+                      Extracting your real layout, companies, dates, and bullet points
                     </div>
                   </div>
                 ) : (
@@ -318,10 +404,10 @@ export function IntakeView({
                       Drop your Resume PDF, TXT, or Word file
                     </div>
                     <div className="text-[11px] text-zinc-500 mt-1 font-mono">
-                      Your exact companies, roles, and dates will be kept
+                      Your exact format, sections, and styling will be mirrored
                     </div>
 
-                    <label className="mt-4 inline-block px-3.5 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-medium text-zinc-200 hover:bg-zinc-700 cursor-pointer shadow-xs transition-colors">
+                    <label className="mt-4 inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-500 border border-indigo-500 rounded-xl text-xs font-semibold text-white cursor-pointer shadow-lg transition-colors">
                       Choose File
                       <input
                         type="file"
@@ -341,16 +427,16 @@ export function IntakeView({
                     <div>
                       <div className="text-xs font-semibold text-emerald-200">{extractStatusMsg}</div>
                       <div className="text-[10px] text-emerald-400/80 font-mono">
-                        Experience text extracted and loaded into editor
+                        Document image preview ready
                       </div>
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveResumeTab('text')}
+                    onClick={() => setActiveResumeTab('document')}
                     className="text-xs text-indigo-400 hover:text-indigo-300 font-medium underline font-mono"
                   >
-                    View Text
+                    View Document Image
                   </button>
                 </div>
               )}
@@ -362,7 +448,7 @@ export function IntakeView({
                     <div>
                       <div className="text-xs font-semibold text-zinc-200">{pdfFileName}</div>
                       <div className="text-[10px] text-zinc-500 font-mono">
-                        {resumePdfBase64 ? 'PDF Document Ready' : 'Text File Attached'}
+                        {resumePdfBase64 ? 'PDF Document Loaded' : 'Text File Attached'}
                       </div>
                     </div>
                   </div>
@@ -377,28 +463,10 @@ export function IntakeView({
               )}
             </div>
           )}
-
-          {activeResumeTab === 'text' && (
-            <div className="space-y-2 flex-1 flex flex-col">
-              <textarea
-                value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
-                placeholder="Paste your current resume here with your work experience, dates, and bullet points..."
-                rows={16}
-                className="w-full flex-1 text-xs font-mono p-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-zinc-200 leading-relaxed placeholder:text-zinc-600 resize-y min-h-[300px]"
-              />
-              <div className="flex items-center justify-between text-[11px] text-zinc-500 font-mono">
-                <span>{resumeText.length.toLocaleString()} characters</span>
-                {pdfFileName && (
-                  <span className="text-indigo-400">Attached: {pdfFileName}</span>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right Panel: Target Job Description */}
-        <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 shadow-xl backdrop-blur-md flex flex-col">
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 shadow-xl backdrop-blur-md flex flex-col min-h-[560px]">
           <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-3">
             <div className="flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-indigo-400" />
@@ -419,9 +487,9 @@ export function IntakeView({
             <textarea
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
-              placeholder="Paste the job description, required skills, and job responsibilities here..."
+              placeholder="Paste the job description, required skills, and responsibilities here..."
               rows={16}
-              className="w-full flex-1 text-xs font-sans p-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-zinc-200 leading-relaxed placeholder:text-zinc-600 resize-y min-h-[300px]"
+              className="w-full flex-1 text-xs font-sans p-3 bg-zinc-950 border border-zinc-800 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-zinc-200 leading-relaxed placeholder:text-zinc-600 resize-y min-h-[360px]"
             />
             <div className="flex items-center justify-between text-[11px] text-zinc-500 font-mono">
               <span>{jobDescription.length.toLocaleString()} characters</span>
@@ -433,37 +501,40 @@ export function IntakeView({
         </div>
       </div>
 
-      {/* Primary Action Dock */}
+      {/* Primary Action Dock - Direct 1-Click Tailoring with Exact Format Preservation */}
       <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl p-6 shadow-2xl backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <div className="text-sm font-bold text-white flex items-center gap-2">
-            <span>Step 1: Check for Missing Skills</span>
+          <div className="text-sm font-bold text-white flex items-center gap-2 flex-wrap">
+            <span>Tailor Resume to Job Requirements</span>
             <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/70 px-2 py-0.5 rounded flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
-              100% Honest · No Made-Up Experience
+              100% Honest Experience
+            </span>
+            <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/60 border border-indigo-800/70 px-2 py-0.5 rounded">
+              Mirrors Exact Format & Layout
             </span>
           </div>
-          <div className="text-xs text-zinc-400 mt-1">
-            We find skills from the job post that are not on your resume, then ask you if you have real experience with them before tailoring.
+          <div className="text-xs text-zinc-400 mt-1 max-w-xl">
+            Rewords your bullet points with strong action verbs and target JD keywords while strictly preserving your exact companies, roles, dates, and original section sequence.
           </div>
         </div>
 
         <button
           type="button"
-          onClick={onRunGapAnalysis}
+          onClick={onTailorResume}
           disabled={isLoading || (!resumeText && !resumePdfBase64) || !jobDescription}
-          className="w-full sm:w-auto px-6 py-3 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+          className="w-full sm:w-auto px-7 py-3.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed rounded-xl transition-all shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 shrink-0"
         >
           {isLoading ? (
             <>
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Checking Skills & Requirements...</span>
+              <span>Tailoring Resume & Mirroring Format...</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" />
-              <span>Check Missing Skills</span>
-              <kbd className="font-mono text-[10px] text-indigo-200 bg-indigo-700/60 px-1 rounded ml-1">
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Tailor Resume (Preserve Exact Format)</span>
+              <kbd className="font-mono text-[10px] text-indigo-200 bg-indigo-700/60 px-1.5 py-0.5 rounded ml-1">
                 ↵
               </kbd>
             </>

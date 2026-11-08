@@ -1,6 +1,6 @@
 interface HeaderProps {
-  activeTab: 'workspace' | 'gaps' | 'diff' | 'export';
-  setActiveTab: (tab: 'workspace' | 'gaps' | 'diff' | 'export') => void;
+  activeTab: 'workspace' | 'diff' | 'export';
+  setActiveTab: (tab: 'workspace' | 'diff' | 'export') => void;
   onReset: () => void;
   hasTailoredResume: boolean;
   engineMode?: string;
@@ -16,13 +16,13 @@ export function Header({
   return (
     <header className="no-print bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/80 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-8">
-        {/* Zone 1: Single-element brand wordmark */}
+        {/* Brand wordmark */}
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-base font-bold tracking-tight text-white whitespace-nowrap">
             AI Resume Tailorer
           </span>
           <span className="text-xs text-zinc-500 font-mono hidden sm:inline">
-            / 100% Truthful ATS Match
+            / Exact Format Mirror
           </span>
           {engineMode && (
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hidden lg:inline">
@@ -31,13 +31,13 @@ export function Header({
           )}
         </div>
 
-        {/* Zone 2: 4 single-line nav links with simple, friendly labels */}
+        {/* Clean nav steps - No skill check */}
         <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-zinc-400">
           <button
             type="button"
             onClick={() => setActiveTab('workspace')}
             className={`whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              activeTab === 'workspace'
+              activeTab === 'workspace' && !hasTailoredResume
                 ? 'text-white font-semibold'
                 : 'hover:text-zinc-200'
             }`}
@@ -48,15 +48,18 @@ export function Header({
 
           <button
             type="button"
-            onClick={() => setActiveTab('gaps')}
+            onClick={() => setActiveTab('workspace')}
+            disabled={!hasTailoredResume}
             className={`whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              activeTab === 'gaps'
+              !hasTailoredResume
+                ? 'text-zinc-600 cursor-not-allowed'
+                : activeTab === 'workspace'
                 ? 'text-white font-semibold'
                 : 'hover:text-zinc-200'
             }`}
           >
             <span className="font-mono text-[10px] text-zinc-500">02</span>
-            Skills Check
+            Tailored Resume
           </button>
 
           <button
@@ -92,7 +95,7 @@ export function Header({
           </button>
         </nav>
 
-        {/* Zone 3: 1 primary action */}
+        {/* Primary action */}
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
