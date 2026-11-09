@@ -2,16 +2,16 @@ interface HeaderProps {
   activeTab: 'workspace' | 'diff' | 'export';
   setActiveTab: (tab: 'workspace' | 'diff' | 'export') => void;
   onReset: () => void;
+  onOpenWelcome: () => void;
   hasTailoredResume: boolean;
-  engineMode?: string;
 }
 
 export function Header({
   activeTab,
   setActiveTab,
   onReset,
+  onOpenWelcome,
   hasTailoredResume,
-  engineMode,
 }: HeaderProps) {
   return (
     <header className="no-print bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/80 sticky top-0 z-40">
@@ -24,11 +24,6 @@ export function Header({
           <span className="text-xs text-zinc-500 font-mono hidden sm:inline">
             / Exact Format Mirror
           </span>
-          {engineMode && (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hidden lg:inline">
-              {engineMode === 'gemini-live' ? '⚡ Gemini 3.8 AI' : '🛡 Smart Engine'}
-            </span>
-          )}
         </div>
 
         {/* Clean nav steps - No skill check */}
@@ -96,7 +91,16 @@ export function Header({
         </nav>
 
         {/* Primary action */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onOpenWelcome}
+            className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 rounded-lg transition-colors whitespace-nowrap shrink-0"
+            title="Learn how this app works"
+          >
+            How it Works
+          </button>
+
           <button
             type="button"
             onClick={onReset}

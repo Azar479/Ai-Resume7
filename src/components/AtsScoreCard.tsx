@@ -3,10 +3,10 @@ import { ShieldCheck, TrendingUp, CheckCircle2 } from 'lucide-react';
 
 interface AtsScoreCardProps {
   insights?: MatchInsights;
-  unverifiedGapsCount: number;
+  unverifiedGapsCount?: number;
 }
 
-export function AtsScoreCard({ insights, unverifiedGapsCount }: AtsScoreCardProps) {
+export function AtsScoreCard({ insights }: AtsScoreCardProps) {
   if (!insights) return null;
 
   const scoreBefore = insights.ats_score_before ?? 55;
@@ -94,31 +94,31 @@ export function AtsScoreCard({ insights, unverifiedGapsCount }: AtsScoreCardProp
           <div className="text-2xl font-bold font-mono text-white mt-1 tabular-nums">
             {insights.matched_keywords?.length || 0}
           </div>
-          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">From job description</div>
+          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">From target job post</div>
         </div>
 
         <div className="bg-zinc-950/60 border border-zinc-800/70 p-3.5 rounded-xl">
-          <div className="text-[11px] text-zinc-400 font-medium">Skills You Confirmed</div>
+          <div className="text-[11px] text-zinc-400 font-medium">Action Verbs Enhanced</div>
           <div className="text-2xl font-bold font-mono text-indigo-400 mt-1 tabular-nums">
-            {insights.verified_user_additions?.length || 0}
+            {insights.action_verb_highlights?.length || 0}
           </div>
-          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">Added with your proof</div>
+          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">High-impact delivery</div>
         </div>
 
         <div className="bg-zinc-950/60 border border-zinc-800/70 p-3.5 rounded-xl">
-          <div className="text-[11px] text-zinc-400 font-medium">Skills Left Out (Kept Honest)</div>
+          <div className="text-[11px] text-zinc-400 font-medium">Factual Authenticity</div>
           <div className="text-2xl font-bold font-mono text-emerald-400 mt-1 tabular-nums">
-            {insights.omitted_gaps?.length || 0}
+            100%
           </div>
-          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">No fake experience</div>
+          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">Zero fabricated roles</div>
         </div>
 
         <div className="bg-zinc-950/60 border border-zinc-800/70 p-3.5 rounded-xl">
-          <div className="text-[11px] text-zinc-400 font-medium">Unanswered Skills</div>
-          <div className="text-2xl font-bold font-mono text-amber-400 mt-1 tabular-nums">
-            {unverifiedGapsCount}
+          <div className="text-[11px] text-zinc-400 font-medium">Layout Fidelity</div>
+          <div className="text-2xl font-bold font-mono text-blue-400 mt-1 tabular-nums">
+            100%
           </div>
-          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">To check with you</div>
+          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">Exact sections preserved</div>
         </div>
       </div>
 

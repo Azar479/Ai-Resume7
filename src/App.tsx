@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Header } from './components/Header';
 import { IntakeView } from './components/IntakeView';
 import { ResumePreview } from './components/ResumePreview';
 import { DiffViewer } from './components/DiffViewer';
 import { AtsScoreCard } from './components/AtsScoreCard';
 import { JsonViewerModal } from './components/JsonViewer';
+import { WelcomeGuideModal } from './components/WelcomeGuideModal';
 import { PRESET_SCENARIOS } from './presets';
 import {
   ResumeEngineResponse,
@@ -24,7 +25,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'workspace' | 'diff' | 'export'>('workspace');
   const [resultSubTab, setResultSubTab] = useState<'preview' | 'diff' | 'insights'>('preview');
 
-  // Input states
+  // Welcome guide state for first-time users
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState<boolean>(() => {
+    try {
+      return !localStorage.getItem('hasSeenResumeWelcomeGuide');
+    } catch {
+      return true;
+    }
+  });
+
+  // Input states - Start clean for real users
   const [candidateName, setCandidateName] = useState<string>('');
   const [candidateContact, setCandidateContact] = useState<string>('');
   const [resumeText, setResumeText] = useState<string>('');
@@ -40,13 +50,16 @@ export default function App() {
   const [tailoredResume, setTailoredResume] = useState<TailoredResume | null>(null);
   const [isJsonModalOpen, setIsJsonModalOpen] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [engineMode, setEngineMode] = useState<string>('gemini-live');
-  const [isSampleData, setIsSampleData] = useState<boolean>(true);
+  const [isSampleData, setIsSampleData] = useState<boolean>(false);
 
-  // Initialize with the first preset scenario on load
-  useEffect(() => {
-    handleSelectPreset(PRESET_SCENARIOS[0]);
-  }, []);
+  const handleCloseWelcome = () => {
+    setIsWelcomeModalOpen(false);
+    try {
+      localStorage.setItem('hasSeenResumeWelcomeGuide', 'true');
+    } catch {
+      // Ignore localStorage exceptions
+    }
+  };
 
   const handleSelectPreset = (preset: PresetScenario) => {
     setIsSampleData(true);
@@ -109,11 +122,8 @@ export default function App() {
         throw new Error(errData.error || `Tailoring failed with status ${res.status}`);
       }
 
-      const data: ResumeEngineResponse & { engine_mode?: string } = await res.json();
+      const data: ResumeEngineResponse = await res.json();
 
-      if (data.engine_mode) {
-        setEngineMode(data.engine_mode);
-      }
       if (data.candidate_name) {
         setCandidateName(data.candidate_name);
       }
@@ -127,7 +137,11 @@ export default function App() {
       setResultSubTab('preview');
     } catch (err: any) {
       console.error('Tailoring error:', err);
-      setErrorMessage(err.message || 'Failed to tailor resume.');
+      const cleanMsg =
+        err.message && !err.message.includes('fetch') && !err.message.includes('status')
+          ? err.message
+          : 'Unable to tailor resume right now. Please verify your resume text and target job description, then try again.';
+      setErrorMessage(cleanMsg);
     } finally {
       setIsTailoringResume(false);
     }
@@ -139,8 +153,8 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onReset={handleReset}
+        onOpenWelcome={() => setIsWelcomeModalOpen(true)}
         hasTailoredResume={!!tailoredResume}
-        engineMode={engineMode}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -280,7 +294,6 @@ export default function App() {
                   <div className="space-y-6">
                     <AtsScoreCard
                       insights={rawResponse?.match_insights}
-                      unverifiedGapsCount={rawResponse?.missing_keywords_and_questions?.length || 0}
                     />
 
                     {/* Factual Bounds Guarantee Box */}
@@ -353,6 +366,13 @@ export default function App() {
           data={rawResponse}
         />
       )}
+
+      {/* First-Time User Welcome & Quickstart Guide */}
+      <WelcomeGuideModal
+        isOpen={isWelcomeModalOpen}
+        onClose={handleCloseWelcome}
+        onExploreSample={() => handleSelectPreset(PRESET_SCENARIOS[0])}
+      />
     </div>
   );
 }

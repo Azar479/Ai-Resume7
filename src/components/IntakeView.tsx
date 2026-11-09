@@ -179,9 +179,8 @@ export function IntakeView({
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-indigo-400" />
             <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-              Sample Resumes & Job Posts
+              Sample Career Scenarios
             </span>
-            <span className="text-xs text-zinc-500 font-mono">/ Instant Testing</span>
           </div>
           <div className="flex items-center gap-2">
             {isSampleData && (

@@ -544,9 +544,9 @@ export function ResumePreview({
             <span>{viewMode === 'focused' ? 'Standard' : 'Focus'}</span>
           </button>
 
-          <span className="text-xs text-emerald-400 font-mono hidden xl:flex items-center gap-1">
-            <Sparkles className="w-3 h-3" />
-            Exact Uploaded Resume Format
+          <span className="text-xs text-emerald-400 font-mono hidden xl:flex items-center gap-1.5">
+            <Check className="w-3.5 h-3.5 text-emerald-400" />
+            Format Preserved
           </span>
         </div>
 
