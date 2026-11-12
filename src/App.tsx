@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Header } from './components/Header';
-import { HeroBanner } from './components/HeroBanner';
 import { IntakeView } from './components/IntakeView';
 import { ResumePreview } from './components/ResumePreview';
 import { DiffViewer } from './components/DiffViewer';
@@ -180,11 +179,18 @@ export default function App() {
 
         {/* View 1: Workspace Tab */}
         {activeTab === 'workspace' && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {!tailoredResume ? (
               <>
-                {/* Hero Showcase with Bold Stats & Reference Artwork */}
-                <HeroBanner hasResumeLoaded={!!(resumeText || resumePdfBase64)} />
+                {/* Clean, Focused Header - Zero Visual Clutter */}
+                <div className="text-center max-w-xl mx-auto pt-2 pb-1 space-y-1">
+                  <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950">
+                    Tailor Resume to Job
+                  </h1>
+                  <p className="text-xs sm:text-sm text-zinc-500">
+                    Upload your resume on the left, paste the target job description on the right, and get an ATS-optimized resume in seconds.
+                  </p>
+                </div>
 
                 {/* Intake Workspace */}
                 <IntakeView
