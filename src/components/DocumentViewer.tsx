@@ -131,7 +131,6 @@ export function DocumentViewer({
 
     const renderPage = async () => {
       try {
-        // Cancel any pending render task to prevent collision
         if (renderTaskRef.current) {
           try {
             renderTaskRef.current.cancel();
@@ -144,7 +143,6 @@ export function DocumentViewer({
         const page = await pdfDoc.getPage(currentPage);
         if (isCancelled) return;
 
-        // Base scale * zoom factor
         const dpr = window.devicePixelRatio || 1;
         const scale = (zoom / 100) * 1.35;
         const viewport = page.getViewport({ scale: scale * dpr });
@@ -170,7 +168,6 @@ export function DocumentViewer({
         renderTaskRef.current = null;
       } catch (err: any) {
         if (err?.name === 'RenderingCancelledException') {
-          // Expected when rapidly changing zoom or page
           return;
         }
         if (!isCancelled) {
@@ -196,35 +193,35 @@ export function DocumentViewer({
   const totalPages = numPages || Math.max(1, Math.ceil((resumeText || '').length / 2800));
 
   return (
-    <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl flex flex-col h-full shadow-2xl backdrop-blur-md overflow-hidden">
+    <div className="bg-white border border-zinc-200/90 rounded-2xl flex flex-col h-full shadow-xs overflow-hidden">
       {/* Top Document Inspection Bar */}
-      <div className="px-4 py-3 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-zinc-950/80">
+      <div className="px-4 py-3 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-3 bg-zinc-50/80">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-indigo-950/80 border border-indigo-800/80 flex items-center justify-center">
-            <FileText className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center">
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
           </div>
           <div>
-            <div className="text-xs font-bold text-zinc-100 flex items-center gap-2">
+            <div className="text-xs font-bold text-zinc-900 flex items-center gap-2">
               <span className="truncate max-w-[200px] sm:max-w-xs">
                 {fileName || `${candidateName || 'Uploaded'} Resume`}
               </span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-1.5 py-0.2 rounded flex items-center gap-1">
-                <FileCheck2 className="w-3 h-3" />
+              <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                <FileCheck2 className="w-3 h-3 text-emerald-600" />
                 Original Document
               </span>
             </div>
-            <div className="text-[10px] text-zinc-400 font-mono">
+            <div className="text-[10px] text-zinc-500 font-mono">
               Page {currentPage} of {totalPages} · Zoom {zoom}%
             </div>
           </div>
         </div>
 
         {/* Action & Zoom Dock */}
-        <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
+        <div className="flex items-center gap-1.5 bg-white border border-zinc-200 rounded-xl p-1 shadow-2xs">
           <button
             type="button"
             onClick={handleZoomOut}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
             title="Zoom Out"
           >
             <ZoomOut className="w-3.5 h-3.5" />
@@ -233,7 +230,7 @@ export function DocumentViewer({
           <button
             type="button"
             onClick={handleResetZoom}
-            className="px-2 py-1 text-[11px] font-mono text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
+            className="px-2 py-1 text-[11px] font-mono font-semibold text-zinc-700 hover:text-zinc-950 hover:bg-zinc-100 rounded-md transition-colors"
             title="Reset Zoom to 100%"
           >
             {zoom}%
@@ -242,7 +239,7 @@ export function DocumentViewer({
           <button
             type="button"
             onClick={handleZoomIn}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
             title="Zoom In"
           >
             <ZoomIn className="w-3.5 h-3.5" />
@@ -251,36 +248,36 @@ export function DocumentViewer({
           <button
             type="button"
             onClick={handleResetZoom}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
             title="Fit to Width"
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
 
-          <div className="h-4 w-px bg-zinc-800 mx-1" />
+          <div className="h-4 w-px bg-zinc-200 mx-1" />
 
           {/* Mode Switcher */}
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => setViewMode('document')}
-              className={`px-2 py-1 text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors ${
+              className={`px-2 py-1 text-[11px] font-semibold rounded-lg flex items-center gap-1 transition-colors ${
                 viewMode === 'document'
-                  ? 'bg-zinc-800 text-white shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-zinc-900 text-white shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-950'
               }`}
               title="Rendered Document Image View"
             >
-              <Eye className="w-3 h-3 text-indigo-400" />
+              <Eye className="w-3 h-3 text-rose-400" />
               <span>Document</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('text')}
-              className={`px-2 py-1 text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors ${
+              className={`px-2 py-1 text-[11px] font-semibold rounded-lg flex items-center gap-1 transition-colors ${
                 viewMode === 'text'
-                  ? 'bg-zinc-800 text-white shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-zinc-900 text-white shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-950'
               }`}
               title="Extracted Text View"
             >
@@ -291,11 +288,11 @@ export function DocumentViewer({
 
           {pdfBase64 && (
             <>
-              <div className="h-4 w-px bg-zinc-800 mx-1" />
+              <div className="h-4 w-px bg-zinc-200 mx-1" />
               <a
                 href={pdfBase64}
                 download={fileName || 'resume.pdf'}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-indigo-300 hover:bg-zinc-800 transition-colors flex items-center"
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-zinc-100 transition-colors flex items-center"
                 title="Download original uploaded PDF"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -305,11 +302,11 @@ export function DocumentViewer({
 
           {onClearDocument && (
             <>
-              <div className="h-4 w-px bg-zinc-800 mx-1" />
+              <div className="h-4 w-px bg-zinc-200 mx-1" />
               <button
                 type="button"
                 onClick={onClearDocument}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-amber-300 hover:bg-zinc-800 transition-colors"
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-amber-600 hover:bg-zinc-100 transition-colors"
                 title="Change or upload different resume"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -320,25 +317,25 @@ export function DocumentViewer({
       </div>
 
       {/* Canvas Viewport */}
-      <div className="flex-1 bg-zinc-950/90 overflow-auto p-4 sm:p-6 flex items-start justify-center min-h-[460px] max-h-[640px]">
+      <div className="flex-1 bg-zinc-100/70 overflow-auto p-4 sm:p-6 flex items-start justify-center min-h-[460px] max-h-[640px]">
         {isLoading || isPdfLoading ? (
           <div className="flex flex-col items-center justify-center h-64 space-y-3">
-            <div className="w-8 h-8 border-3 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-            <div className="text-xs text-zinc-300 font-medium">
+            <div className="w-8 h-8 border-3 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+            <div className="text-xs text-zinc-700 font-semibold">
               Rendering high-resolution document image...
             </div>
           </div>
         ) : viewMode === 'text' ? (
-          <div className="w-full h-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-xl p-4 font-mono text-xs text-zinc-200 whitespace-pre-wrap leading-relaxed overflow-auto">
+          <div className="w-full h-full max-w-2xl bg-white border border-zinc-200 rounded-xl p-4 font-mono text-xs text-zinc-800 whitespace-pre-wrap leading-relaxed overflow-auto shadow-xs">
             {resumeText}
           </div>
         ) : pdfBase64 && !pdfRenderError ? (
           /* Real High-Resolution Canvas Rendered by Mozilla PDF.js */
           <div className="flex flex-col items-center justify-center w-full transition-all">
-            <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-zinc-700/60 p-1 flex justify-center">
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-zinc-200 p-1 flex justify-center">
               <canvas
                 ref={canvasRef}
-                className="block max-w-full rounded shadow-sm bg-white"
+                className="block max-w-full rounded shadow-xs bg-white"
               />
             </div>
           </div>
@@ -348,7 +345,7 @@ export function DocumentViewer({
             className="w-full flex justify-center transition-transform origin-top"
             style={{ transform: `scale(${zoom / 100})` }}
           >
-            <div className="w-full max-w-2xl bg-white text-slate-900 rounded-xl shadow-2xl p-8 sm:p-12 border border-slate-300 font-sans leading-relaxed">
+            <div className="w-full max-w-2xl bg-white text-slate-900 rounded-xl shadow-lg p-8 sm:p-12 border border-slate-200 font-sans leading-relaxed">
               {pdfRenderError && (
                 <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
@@ -360,7 +357,7 @@ export function DocumentViewer({
 
               {/* Header */}
               <div
-                className={`pb-4 mb-4 border-b border-slate-300 ${
+                className={`pb-4 mb-4 border-b border-slate-200 ${
                   blueprint?.header_alignment === 'left' ? 'text-left' : 'text-center'
                 }`}
               >
@@ -384,10 +381,10 @@ export function DocumentViewer({
       </div>
 
       {/* Bottom Page Navigation Footer */}
-      <div className="px-4 py-2 border-t border-zinc-800/80 bg-zinc-950/60 flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+      <div className="px-4 py-2.5 border-t border-zinc-200 bg-white flex items-center justify-between text-[11px] text-zinc-500 font-mono">
         <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-          <span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+          <span className="font-medium text-zinc-700">
             {pdfBase64 && !pdfRenderError ? 'PDF Document Canvas Ready' : 'Document Image Ready'}
           </span>
         </span>
@@ -397,7 +394,7 @@ export function DocumentViewer({
             type="button"
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage <= 1}
-            className="px-2 py-0.5 rounded text-zinc-400 hover:text-white disabled:opacity-40 disabled:hover:text-zinc-400 transition-colors"
+            className="px-2 py-0.5 rounded text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 disabled:opacity-40 disabled:hover:text-zinc-600 transition-colors font-semibold"
           >
             ◀ Prev
           </button>
@@ -408,7 +405,7 @@ export function DocumentViewer({
             type="button"
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage >= totalPages}
-            className="px-2 py-0.5 rounded text-zinc-400 hover:text-white disabled:opacity-40 disabled:hover:text-zinc-400 transition-colors"
+            className="px-2 py-0.5 rounded text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 disabled:opacity-40 disabled:hover:text-zinc-600 transition-colors font-semibold"
           >
             Next ▶
           </button>

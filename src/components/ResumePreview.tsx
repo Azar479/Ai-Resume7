@@ -472,36 +472,36 @@ export function ResumePreview({
 
   return (
     <div className="space-y-6">
-      {/* 2026 Floating Action Toolbar */}
-      <div className="no-print bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+      {/* Editorial Action Toolbar */}
+      <div className="no-print bg-white border border-zinc-200/90 rounded-3xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xs">
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           {/* Format Presentation Switcher */}
-          <div className="flex items-center gap-1 p-1 bg-zinc-950 rounded-xl border border-zinc-800">
+          <div className="flex items-center gap-1 p-1 bg-zinc-100 rounded-xl border border-zinc-200">
             <button
               type="button"
               onClick={() => setLayoutStyle('document')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors ${
                 layoutStyle === 'document'
-                  ? 'bg-zinc-800 text-white shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-white text-zinc-950 shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-950'
               }`}
               title="Rendered in exact format, layout, and section sequence of your uploaded resume"
             >
-              <FileText className="w-3.5 h-3.5 text-indigo-400" />
+              <FileText className="w-3.5 h-3.5 text-rose-500" />
               <span>Document Preview</span>
             </button>
 
             <button
               type="button"
               onClick={() => setLayoutStyle('text')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors ${
                 layoutStyle === 'text'
-                  ? 'bg-zinc-800 text-white shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-white text-zinc-950 shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-950'
               }`}
               title="View or copy raw plain-text format"
             >
-              <Layers className="w-3.5 h-3.5 text-zinc-400" />
+              <Layers className="w-3.5 h-3.5 text-zinc-500" />
               <span>Raw Text</span>
             </button>
           </div>
@@ -509,10 +509,10 @@ export function ResumePreview({
           <button
             type="button"
             onClick={() => setIsEditing(!isEditing)}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all ${
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs ${
               isEditing
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+                ? 'bg-gradient-to-r from-orange-500 via-rose-500 to-fuchsia-600 text-white shadow-rose-500/25'
+                : 'bg-zinc-900 hover:bg-zinc-800 text-white'
             }`}
           >
             {isEditing ? <Check className="w-3.5 h-3.5" /> : <Edit3 className="w-3.5 h-3.5" />}
@@ -523,10 +523,10 @@ export function ResumePreview({
           <button
             type="button"
             onClick={() => setViewMode(viewMode === 'side-by-side' ? 'standard' : 'side-by-side')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors flex items-center gap-1.5 ${
               viewMode === 'side-by-side'
-                ? 'bg-indigo-950/80 text-indigo-300 border-indigo-700/80 shadow-xs'
-                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border-zinc-800'
+                ? 'bg-rose-50 text-rose-700 border-rose-300 shadow-2xs'
+                : 'bg-white text-zinc-700 hover:text-zinc-950 border-zinc-200 hover:bg-zinc-50'
             }`}
             title="Compare uploaded resume image side-by-side with tailored resume"
           >
@@ -537,68 +537,68 @@ export function ResumePreview({
           <button
             type="button"
             onClick={() => setViewMode(viewMode === 'focused' ? 'standard' : 'focused')}
-            className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 bg-zinc-950 rounded-lg border border-zinc-800 hidden sm:flex items-center gap-1.5 font-mono"
+            className="px-3 py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 bg-white rounded-xl border border-zinc-200 hidden sm:flex items-center gap-1.5 font-mono"
             title="Toggle Focused View"
           >
             <Maximize2 className="w-3 h-3" />
             <span>{viewMode === 'focused' ? 'Standard' : 'Focus'}</span>
           </button>
 
-          <span className="text-xs text-emerald-400 font-mono hidden xl:flex items-center gap-1.5">
-            <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="text-xs text-emerald-800 font-mono hidden xl:flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+            <Check className="w-3.5 h-3.5 text-emerald-600" />
             Format Preserved
           </span>
         </div>
 
-        {/* 2026 Export Dock */}
+        {/* Export Dock */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={triggerPrint}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-200 bg-zinc-950 border border-zinc-800 hover:bg-zinc-800 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+            className="px-3 py-1.5 text-xs font-bold text-zinc-800 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs"
             title="Print or Save as PDF"
           >
-            <Printer className="w-3.5 h-3.5 text-indigo-400" />
+            <Printer className="w-3.5 h-3.5 text-rose-500" />
             PDF / Print
           </button>
 
           <button
             type="button"
             onClick={() => exportToWordDoc(resume, candidateName, candidateContact)}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-200 bg-zinc-950 border border-zinc-800 hover:bg-zinc-800 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+            className="px-3 py-1.5 text-xs font-bold text-zinc-800 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs"
             title="Download Word Document"
           >
-            <FileText className="w-3.5 h-3.5 text-blue-400" />
+            <FileText className="w-3.5 h-3.5 text-blue-500" />
             Word (.doc)
           </button>
 
           <button
             type="button"
             onClick={() => exportToPlainText(resume, candidateName, candidateContact)}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-200 bg-zinc-950 border border-zinc-800 hover:bg-zinc-800 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+            className="px-3 py-1.5 text-xs font-bold text-zinc-800 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs"
             title="Download Plain Text"
           >
-            <Download className="w-3.5 h-3.5 text-zinc-400" />
+            <Download className="w-3.5 h-3.5 text-zinc-500" />
             Plain Text (.txt)
           </button>
 
           <button
             type="button"
             onClick={onOpenJsonModal}
-            className="px-3 py-1.5 text-xs font-semibold text-indigo-300 bg-indigo-950/60 border border-indigo-800/80 hover:bg-indigo-900/80 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs font-mono"
+            className="px-3 py-1.5 text-xs font-semibold text-zinc-700 bg-zinc-50 border border-zinc-200 hover:bg-zinc-100 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs font-mono"
             title="View Structured Schema JSON"
           >
-            <Code className="w-3.5 h-3.5" />
+            <Code className="w-3.5 h-3.5 text-zinc-500" />
             Schema JSON
           </button>
 
           <button
             type="button"
             onClick={handleCopyText}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-200 bg-zinc-950 border border-zinc-800 hover:bg-zinc-800 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+            className="px-3 py-1.5 text-xs font-semibold text-zinc-800 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs"
             title="Copy plain text"
           >
-            <Copy className="w-3.5 h-3.5" />
+            <Copy className="w-3.5 h-3.5 text-zinc-500" />
             {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
@@ -609,11 +609,11 @@ export function ResumePreview({
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Left: Original Uploaded Document Preview */}
           <div className="flex flex-col space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono text-zinc-400 px-1">
-              <span className="font-bold text-zinc-200">Original Uploaded Document</span>
-              <span className="text-zinc-500">Source Format</span>
+            <div className="flex items-center justify-between text-xs font-mono text-zinc-600 px-1">
+              <span className="font-bold text-zinc-900">Original Uploaded Document</span>
+              <span className="text-zinc-400">Source Format</span>
             </div>
-            <div className="h-[750px] overflow-hidden rounded-2xl">
+            <div className="h-[750px] overflow-hidden rounded-3xl border border-zinc-200/90 shadow-xs">
               <DocumentViewer
                 pdfBase64={pdfBase64 || null}
                 fileName={fileName || 'Original Resume'}
@@ -627,18 +627,18 @@ export function ResumePreview({
 
           {/* Right: Tailored Resume Document */}
           <div className="flex flex-col space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono text-zinc-400 px-1">
-              <span className="font-bold text-indigo-300">Tailored Resume (Exact Mirror)</span>
-              <span className="text-emerald-400">ATS Optimized</span>
+            <div className="flex items-center justify-between text-xs font-mono text-zinc-600 px-1">
+              <span className="font-bold text-rose-600">Tailored Resume (Exact Mirror)</span>
+              <span className="text-emerald-700 font-semibold">ATS Optimized</span>
             </div>
-            <div className="h-[750px] overflow-auto desk-canvas rounded-2xl p-4 sm:p-6 border border-zinc-800 flex justify-center">
+            <div className="h-[750px] overflow-auto desk-canvas rounded-3xl p-4 sm:p-6 border border-zinc-200/90 flex justify-center shadow-xs">
               {PaperSheet}
             </div>
           </div>
         </div>
       ) : (
         <div
-          className={`desk-canvas rounded-2xl p-6 sm:p-12 border border-zinc-800 flex justify-center transition-all ${
+          className={`desk-canvas rounded-3xl p-6 sm:p-12 border border-zinc-200/90 flex justify-center transition-all shadow-xs ${
             viewMode === 'focused' ? 'p-1 sm:p-4' : ''
           }`}
         >

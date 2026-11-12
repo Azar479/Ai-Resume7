@@ -21,16 +21,16 @@ export function WelcomeGuideModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl overflow-hidden">
-        {/* Subtle top ambient glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-indigo-500/10 blur-3xl pointer-events-none" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-md animate-fade-in">
+      <div className="relative w-full max-w-2xl bg-white border border-zinc-200/90 rounded-3xl p-6 sm:p-8 shadow-2xl overflow-hidden">
+        {/* Subtle top ambient sunset glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-gradient-to-r from-orange-400/15 via-rose-500/15 to-purple-500/15 blur-3xl pointer-events-none" />
 
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-xl text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 transition-colors"
           title="Close guide"
         >
           <X className="w-4 h-4" />
@@ -38,80 +38,80 @@ export function WelcomeGuideModal({
 
         {/* Modal Header */}
         <div className="space-y-2 mb-6">
-          <div className="flex items-center gap-2 text-xs font-mono text-indigo-400">
+          <div className="flex items-center gap-2 text-xs font-mono font-bold text-rose-600">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Welcome Guide</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black text-zinc-950 tracking-tight">
             AI Resume Tailorer
           </h2>
-          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-xl">
+          <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed max-w-xl">
             Tailor your resume to any job description with high-impact ATS keywords while strictly preserving your authentic companies, dates, and original document format.
           </p>
         </div>
 
         {/* Core Pillars Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-          <div className="p-4 rounded-2xl bg-zinc-950/70 border border-zinc-800/80 space-y-2">
-            <div className="w-8 h-8 rounded-xl bg-indigo-950/60 border border-indigo-800/60 flex items-center justify-center text-indigo-400">
+          <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 space-y-2">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
               <FileText className="w-4 h-4" />
             </div>
-            <h3 className="text-xs font-bold text-zinc-100">Exact Format Mirror</h3>
-            <p className="text-[11px] text-zinc-400 leading-normal">
+            <h3 className="text-xs font-bold text-zinc-950">Exact Format Mirror</h3>
+            <p className="text-[11px] text-zinc-500 leading-normal">
               Maintains your exact section sequence, font style, and header layout from your uploaded resume.
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-zinc-950/70 border border-zinc-800/80 space-y-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-950/60 border border-emerald-800/60 flex items-center justify-center text-emerald-400">
+          <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 space-y-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
               <ShieldCheck className="w-4 h-4" />
             </div>
-            <h3 className="text-xs font-bold text-zinc-100">100% Truthful Content</h3>
-            <p className="text-[11px] text-zinc-400 leading-normal">
+            <h3 className="text-xs font-bold text-zinc-950">100% Truthful Content</h3>
+            <p className="text-[11px] text-zinc-500 leading-normal">
               Never hallucinates false credentials, made-up metrics, or fake employers. Only rewords your real experience.
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-zinc-950/70 border border-zinc-800/80 space-y-2">
-            <div className="w-8 h-8 rounded-xl bg-blue-950/60 border border-blue-800/60 flex items-center justify-center text-blue-400">
+          <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 space-y-2">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
               <Columns className="w-4 h-4" />
             </div>
-            <h3 className="text-xs font-bold text-zinc-100">Side-by-Side Review</h3>
-            <p className="text-[11px] text-zinc-400 leading-normal">
+            <h3 className="text-xs font-bold text-zinc-950">Side-by-Side Review</h3>
+            <p className="text-[11px] text-zinc-500 leading-normal">
               Inspect your source document canvas and tailored output side-by-side, then export to Word, PDF, or text.
             </p>
           </div>
         </div>
 
         {/* 3 Step Quickstart Guide */}
-        <div className="bg-zinc-950/50 border border-zinc-800/80 rounded-2xl p-4 sm:p-5 mb-6 space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+        <div className="bg-zinc-50 border border-zinc-200/80 rounded-2xl p-4 sm:p-5 mb-6 space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-zinc-900 font-mono">
             Where to Start
           </div>
-          <div className="space-y-2.5 text-xs text-zinc-300">
+          <div className="space-y-2.5 text-xs text-zinc-700">
             <div className="flex items-start gap-3">
-              <span className="font-mono text-indigo-400 font-bold shrink-0 mt-0.5">01</span>
+              <span className="font-mono text-rose-600 font-bold shrink-0 mt-0.5">01</span>
               <div>
-                <strong className="text-white">Upload your resume:</strong> Drop a PDF, TXT file, or paste your resume text. The visual document viewer will display your document preview.
+                <strong className="text-zinc-950">Upload your resume:</strong> Drop a PDF, TXT file, or paste your resume text. The visual document viewer will display your document preview.
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <span className="font-mono text-indigo-400 font-bold shrink-0 mt-0.5">02</span>
+              <span className="font-mono text-rose-600 font-bold shrink-0 mt-0.5">02</span>
               <div>
-                <strong className="text-white">Paste the job description:</strong> Provide the target job posting with its required qualifications and responsibilities.
+                <strong className="text-zinc-950">Paste the job description:</strong> Provide the target job posting with its required qualifications and responsibilities.
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <span className="font-mono text-indigo-400 font-bold shrink-0 mt-0.5">03</span>
+              <span className="font-mono text-rose-600 font-bold shrink-0 mt-0.5">03</span>
               <div>
-                <strong className="text-white">Tailor & Export:</strong> Click "Tailor Resume" to generate your tailored resume, review the diff, and download Word (.doc), PDF, or plain text.
+                <strong className="text-zinc-950">Tailor & Export:</strong> Click "Tailor Resume" to generate your tailored resume, review the diff, and download Word (.doc), PDF, or plain text.
               </div>
             </div>
           </div>
         </div>
 
         {/* Modal Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-zinc-800/80">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-zinc-100">
           {onExploreSample ? (
             <button
               type="button"
@@ -119,7 +119,7 @@ export function WelcomeGuideModal({
                 onExploreSample();
                 onClose();
               }}
-              className="w-full sm:w-auto px-4 py-2.5 text-xs font-medium text-zinc-300 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+              className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 rounded-xl transition-colors flex items-center justify-center gap-1.5"
             >
               <span>Explore with Sample Resume</span>
             </button>
@@ -130,7 +130,7 @@ export function WelcomeGuideModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto px-6 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-all shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-2.5 text-xs font-extrabold text-white bg-gradient-to-r from-orange-500 via-rose-500 to-fuchsia-600 hover:from-orange-600 hover:via-rose-600 hover:to-fuchsia-700 rounded-xl transition-all shadow-md shadow-rose-500/25 flex items-center justify-center gap-2"
           >
             <span>Get Started</span>
             <ArrowRight className="w-3.5 h-3.5" />
